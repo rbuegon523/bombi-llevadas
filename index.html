@@ -1,0 +1,1082 @@
+<!--
+  ¡Hola! Este es el archivo todo-en-uno para el juego "Bombi al Rescate".
+  Contiene todo el HTML, CSS y JavaScript (React/JSX) necesario para funcionar.
+  Puedes subir este único archivo a GitHub Pages o cualquier otro hosting estático
+  y el juego funcionará directamente. ¡No necesitas compilar nada!
+-->
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>¡Bombi al Rescate!</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- 1. Añadimos el "traductor" Babel Standalone -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script type="importmap">
+{
+  "imports": {
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "react": "https://aistudiocdn.com/react@^19.2.0"
+  }
+}
+</script>
+<style>
+  html, body {
+    min-height: 100vh;
+  }
+  body {
+    background: linear-gradient(to bottom, #87CEEB 0%, #a7d9ff 70%, #4ade80 70%, #34d399 100%);
+  }
+
+  @keyframes bob {
+    0%, 100% {
+      transform: translateY(-4%);
+      animation-timing-function: ease-in-out;
+    }
+    50% {
+      transform: translateY(0);
+      animation-timing-function: ease-in-out;
+    }
+  }
+  .animate-bob {
+    animation: bob 2.5s infinite;
+  }
+  @keyframes flicker {
+    0%, 100% {
+      transform: scale(1) rotate(-1deg);
+      opacity: 1;
+    }
+    50% {
+      transform: scale(1.05) rotate(1deg);
+      opacity: 0.95;
+    }
+  }
+  .animate-flicker {
+    animation: flicker 1.2s infinite ease-in-out;
+  }
+  @keyframes shake {
+    10%, 90% { transform: translate3d(-1px, 0, 0); }
+    20%, 80% { transform: translate3d(2px, 0, 0); }
+    30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+    40%, 60% { transform: translate3d(4px, 0, 0); }
+  }
+  .animate-shake {
+    animation: shake 0.82s cubic-bezier(.36,.07,.19,.97) both;
+  }
+  @keyframes tada {
+    from { transform: scale3d(1, 1, 1); }
+    10%, 20% { transform: scale3d(0.9, 0.9, 0.9) rotate3d(0, 0, 1, -3deg); }
+    30%, 50%, 70%, 90% { transform: scale3d(1.1, 1.1, 1.1) rotate3d(0, 0, 1, 3deg); }
+    40%, 60%, 80% { transform: scale3d(1.1, 1.1, 1.1) rotate3d(0, 0, 1, -3deg); }
+    to { transform: scale3d(1, 1, 1); }
+  }
+  .animate-tada {
+    animation: tada 1s ease-in-out;
+  }
+  @keyframes medal-pop {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.6) rotate(15deg); }
+    100% { transform: scale(1); }
+  }
+  .animate-medal-pop {
+    animation: medal-pop 0.8s ease-in-out;
+  }
+  @keyframes confetti-fall {
+    0% { transform: translateY(-100vh) rotate(0deg); opacity: 1; }
+    100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+  }
+  .confetti-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    overflow: hidden;
+    z-index: 9999;
+  }
+  .confetti-piece {
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    opacity: 0;
+    animation-name: confetti-fall;
+    animation-timing-function: linear;
+    animation-iteration-count: infinite;
+  }
+  @keyframes fade-in-scale-up {
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
+  }
+  .animate-fade-in-scale-up {
+    animation: fade-in-scale-up 0.5s ease-out forwards;
+  }
+  @keyframes fade-in-out-up {
+    0% { opacity: 0; transform: translateY(20px) scale(0.9); }
+    20%, 80% { opacity: 1; transform: translateY(0) scale(1); }
+    100% { opacity: 0; transform: translateY(-20px) scale(0.9); }
+  }
+  .animate-fade-in-out-up {
+    animation: fade-in-out-up 1.5s ease-in-out forwards;
+  }
+  @keyframes drop {
+      0% { transform: scale(1.5) translateY(-20px); opacity: 0; }
+      50% { transform: scale(0.9); }
+      100% { transform: scale(1) translateY(0); opacity: 1; }
+  }
+  .animate-drop {
+    animation: drop 0.4s ease-out forwards;
+  }
+</style>
+<link rel="stylesheet" href="/index.css">
+</head>
+<body>
+  <div id="root"></div>
+  <!-- 2. Todo el código de la aplicación está incluido aquí abajo -->
+  <script type="text/babel" data-type="module">
+// Import React dependencies
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import ReactDOM from 'react-dom/client';
+
+// types.ts
+var ItemType;
+(function (ItemType) {
+    ItemType["BOMBI"] = "BOMBI";
+    ItemType["FIRE"] = "FIRE";
+})(ItemType || (ItemType = {}));
+
+// components/icons/FireIcon.tsx
+const FireIcon = ({ className }) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    viewBox="0 0 24 24"
+    className={className}
+    aria-label="Fuego"
+  >
+    <defs>
+      <linearGradient id="fireGradient" x1="50%" y1="0%" x2="50%" y2="100%">
+        <stop offset="0%" stopColor="#FBBF24" />
+        <stop offset="100%" stopColor="#F97316" />
+      </linearGradient>
+    </defs>
+    <path
+      fill="url(#fireGradient)"
+      d="M12.6,2.2c-0.1-0.2-0.3-0.2-0.4-0.1C12,2.2,6.5,6.4,6.5,12.2c0,3.3,2.4,6.1,5.5,6.1s5.5-2.8,5.5-6.1 C17.5,8.8,14.2,5.2,12.6,2.2z"
+    />
+    <path
+      fill="#FEF3C7"
+      d="M12.4,6.8c-0.1-0.1-0.2-0.1-0.2,0c-0.1,0.1-2.9,2.2-2.9,5.2c0,1.9,1.4,3.4,3,3.4s3-1.5,3-3.4 C15.3,9.5,13.2,7.5,12.4,6.8z"
+    />
+  </svg>
+);
+
+// components/icons/FirefighterIcon.tsx
+const FirefighterIcon = ({ className }) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    viewBox="0 0 24 24"
+    className={className}
+    aria-label="Bombero Bombi"
+  >
+    <g>
+        {/* Hose */}
+        <path
+            d="M5,15 C2,15 2,21 5,21"
+            stroke="#4B5563"
+            strokeWidth="3"
+            fill="none"
+            strokeLinecap="round"
+        />
+        <path fill="#374151" d="M3 14h2v3H3z" />
+        
+        {/* Suit */}
+        <path fill="#DC2626" d="M8 10h8v10H8z" />
+        
+        {/* Boots */}
+        <path fill="#1F2937" d="M8 20h3v2H8zm5 0h3v2h-3z" />
+        
+        {/* Face */}
+        <path fill="#FDE68A" d="M9 7h6v4H9z" />
+        
+        {/* Helmet */}
+        <path fill="#FBBF24" d="M12 2a4.5 4.5 0 00-4.5 4.5V8h9V6.5A4.5 4.5 0 0012 2z" />
+        <path fill="#F59E0B" d="M6 8h12v1H6z" />
+    </g>
+  </svg>
+);
+
+// components/icons/HomeIcon.tsx
+const HomeIcon = ({ className }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
+    <path d="M11.47 3.84a.75.75 0 011.06 0l8.69 8.69a.75.75 0 101.06-1.06l-8.689-8.69a2.25 2.25 0 00-3.182 0l-8.69 8.69a.75.75 0 001.061 1.06l8.69-8.69z" />
+    <path d="M12 5.432l8.159 8.159c.026.026.05.054.07.084v6.101a2.25 2.25 0 01-2.25 2.25H6.25a2.25 2.25 0 01-2.25-2.25v-6.101c.02-.03.044-.058.07-.084L12 5.432z" />
+  </svg>
+);
+
+// components/icons/MedalIcon.tsx
+const MedalIcon = ({ className }) => (
+  <svg 
+    xmlns="http://www.w3.org/2000/svg" 
+    viewBox="0 0 24 24" 
+    fill="currentColor" 
+    className={className}
+    aria-hidden="true"
+    >
+    <path 
+        fillRule="evenodd" 
+        d="M12.963 2.286a.75.75 0 00-1.071 1.052A9.75 9.75 0 0110.303 6.6a.75.75 0 001.214.882A8.25 8.25 0 0012.963 2.286z" 
+        clipRule="evenodd" 
+    />
+    <path 
+        d="M10.875 10.875a.75.75 0 00-1.06 1.06l3.75 3.75a.75.75 0 001.06-1.06l-3.75-3.75z" 
+    />
+    <path 
+        d="M12 1.5a5.25 5.25 0 00-5.25 5.25v3a.75.75 0 00.75.75h9a.75.75 0 00.75-.75v-3A5.25 5.25 0 0012 1.5zm-3.75 5.25a3.75 3.75 0 117.5 0 3.75 3.75 0 01-7.5 0z" 
+    />
+    <path 
+        fillRule="evenodd" 
+        d="M12 22.5c-5.161 0-9.539-3.515-10.363-8.25a.75.75 0 011.465-.563A8.98 8.98 0 0012 21a8.98 8.98 0 008.463-7.313a.75.75 0 011.465.563C21.539 18.985 17.161 22.5 12 22.5z" 
+        clipRule="evenodd" 
+    />
+</svg>
+);
+
+// components/DraggableItem.tsx
+const DraggableItem = ({ type, onClick, justDropped, isTall }) => {
+  const handleClick = (e) => {
+    e.stopPropagation(); // Prevent triggering floor click
+    onClick(type);
+  };
+  
+  const isFire = type === ItemType.FIRE;
+  const itemClass = `${isTall ? 'w-8 h-8 sm:w-10 sm:h-10' : 'w-12 h-12 sm:w-14 sm:h-14'} flex items-center justify-center cursor-pointer transition-transform duration-200 hover:scale-110`;
+  const idleAnimationClass = isFire ? 'animate-flicker' : 'animate-bob';
+  const dropAnimationClass = justDropped ? 'animate-drop' : '';
+
+  return (
+    <div
+      onClick={handleClick}
+      className={`${itemClass} ${idleAnimationClass} ${dropAnimationClass}`}
+      aria-label={isFire ? 'Fuego (haz clic para mover)' : 'Bombero Bombi (haz clic para mover)'}
+    >
+      {isFire ? (
+        <FireIcon className="w-full h-full" />
+      ) : (
+        <FirefighterIcon className="w-full h-full" />
+      )}
+    </div>
+  );
+};
+
+// components/Floor.tsx
+const Floor = ({ floorNumber, children, onClick, isFireHere, isBombiHere, heldItem, isTall }) => {
+  const handleClick = (e) => {
+    onClick(floorNumber);
+  };
+  
+  const windowBaseClass = "w-20 h-full flex items-center justify-center rounded-lg shadow-inner transition-all duration-200";
+  const windowNormalClass = "bg-sky-200/60";
+  
+  let windowHoverClass = 'hover:bg-sky-300/80'; // Default hover when not holding anything
+  if (heldItem === ItemType.BOMBI) {
+    windowHoverClass = "hover:bg-green-300/80 hover:ring-4 hover:ring-green-400 hover:ring-dashed hover:scale-105";
+  } else if (heldItem === ItemType.FIRE) {
+    windowHoverClass = "hover:bg-orange-300/80 hover:ring-4 hover:ring-orange-400 hover:ring-dashed hover:scale-105";
+  }
+
+  const windowFireClass = "bg-red-500/80 ring-2 ring-red-600/80";
+  const windowBombiClass = "bg-cyan-400/80 ring-2 ring-cyan-500/80";
+
+  let windowDynamicClass = `${windowNormalClass} ${windowHoverClass}`;
+  if (isFireHere) {
+    windowDynamicClass = windowFireClass;
+  } else if (isBombiHere) {
+    windowDynamicClass = windowBombiClass;
+  }
+  
+  const floorHeightClass = isTall ? 'h-10 md:h-12' : 'h-16 md:h-20';
+
+  return (
+    <div
+      onClick={handleClick}
+      className={`${floorHeightClass} flex items-center justify-center ${heldItem ? 'cursor-copy' : ''}`}
+      aria-label={`Piso ${floorNumber}`}
+    >
+      <div className={`${windowBaseClass} ${windowDynamicClass}`}>
+        {children}
+      </div>
+    </div>
+  );
+};
+
+// components/Building.tsx
+const Building = ({ fireFloor, bombiFloor, onItemClick, onFloorClick, heldItem, isCelebrating, problem, lastMove, floorCount }) => {
+  const isTall = floorCount > 10;
+  const floors = Array.from({ length: floorCount }, (_, i) => i);
+  const [bombiTop, setBombiTop] = useState(null);
+
+  const floorHeight = isTall ? 40 : 64; // Corresponds to h-10 vs h-16
+  const itemHeight = isTall ? 32 : 48;  // Corresponds to h-8 vs h-12
+  const verticalOffset = (floorHeight - itemHeight) / 2;
+  const topFloorNumber = floorCount - 1;
+
+  useEffect(() => {
+    if (isCelebrating) {
+      const startTop = (topFloorNumber - problem.bombi) * floorHeight + verticalOffset;
+      setBombiTop(startTop);
+      
+      const timer = setTimeout(() => {
+        const endTop = (topFloorNumber - problem.fire) * floorHeight + verticalOffset;
+        setBombiTop(endTop);
+      }, 100);
+
+      return () => clearTimeout(timer);
+    } else {
+      setBombiTop(null);
+    }
+  }, [isCelebrating, problem, verticalOffset, floorHeight, topFloorNumber]);
+
+  return (
+    <div className="relative w-40 sm:w-48 bg-gradient-to-b from-slate-600 to-slate-800 p-2 rounded-lg shadow-2xl border-4 border-slate-900 shadow-inner">
+      <div className="flex flex-col-reverse">
+        {floors.map((floorNum) => (
+          <div key={floorNum} className={`relative flex items-center ${isTall ? 'border-b-2' : 'border-b-4'} border-slate-900 last:border-b-0`}>
+             <span className={`absolute left-2 top-1/2 -translate-y-1/2 font-bold text-white bg-black/50 rounded-full flex items-center justify-center ${isTall ? 'text-base w-6 h-6' : 'text-xl w-7 h-7'}`}>
+                {floorNum}
+             </span>
+             <Floor 
+                floorNumber={floorNum} 
+                onClick={onFloorClick}
+                isFireHere={fireFloor === floorNum}
+                isBombiHere={!isCelebrating && bombiFloor === floorNum}
+                heldItem={heldItem}
+                isTall={isTall}
+              >
+              <div className={isCelebrating && fireFloor === floorNum ? 'transition-opacity duration-500 delay-1000 opacity-0' : ''}>
+                {fireFloor === floorNum && heldItem !== ItemType.FIRE && (
+                  <DraggableItem type={ItemType.FIRE} onClick={onItemClick} justDropped={lastMove.type === ItemType.FIRE && lastMove.floor === floorNum} isTall={isTall} />
+                )}
+              </div>
+              {!isCelebrating && bombiFloor === floorNum && heldItem !== ItemType.BOMBI && (
+                <DraggableItem type={ItemType.BOMBI} onClick={onItemClick} justDropped={lastMove.type === ItemType.BOMBI && lastMove.floor === floorNum} isTall={isTall} />
+              )}
+            </Floor>
+          </div>
+        ))}
+      </div>
+      {isCelebrating && bombiTop !== null && problem.bombi !== null && problem.fire !== null && (
+        <div 
+          className={`absolute left-1/2 -translate-x-1/2 ${isTall ? 'w-8 h-8 sm:w-10 sm:h-10' : 'w-12 h-12 sm:w-14 sm:h-14'}`} 
+          style={{ top: `${bombiTop}px`, transition: 'top 1s ease-in-out' }}
+        >
+          <FirefighterIcon className="w-full h-full animate-bob" />
+        </div>
+      )}
+    </div>
+  );
+};
+
+// components/Problem.tsx
+const Problem = ({
+  fireFloor,
+  bombiFloor,
+  answer,
+  setAnswer,
+  checkAnswer,
+  isCorrect,
+  title,
+  subtractionType,
+}) => {
+  const [isShaking, setIsShaking] = useState(false);
+
+  useEffect(() => {
+    if (isCorrect === false) {
+      setIsShaking(true);
+      const timer = setTimeout(() => setIsShaking(false), 820);
+      return () => clearTimeout(timer);
+    }
+  }, [isCorrect]);
+
+  const handleInputChange = (e) => {
+    const value = e.target.value.replace(/[^0-9]/g, '');
+    setAnswer(value);
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (answer.trim() === '') return;
+    checkAnswer();
+  };
+  
+  const isCarryMode = subtractionType === 'carry';
+  const minuend = isCarryMode ? fireFloor : Math.max(fireFloor, bombiFloor);
+  const subtrahend = isCarryMode ? bombiFloor : Math.min(fireFloor, bombiFloor);
+
+  const inputBaseClasses = "w-16 h-16 text-center bg-white border-2 rounded-lg focus:ring-4 transition";
+  const inputNormalClasses = "border-gray-300 focus:ring-blue-300 focus:border-blue-500";
+  const inputErrorClasses = "border-red-500 focus:ring-red-300 focus:border-red-500 animate-shake";
+
+  return (
+    <div className={`w-full max-w-xs p-4 bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border transition-all duration-300 animate-fade-in-scale-up ${isCorrect === true ? 'border-green-400 ring-4 ring-green-200' : 'border-gray-200'}`}>
+      <p className="text-center text-gray-700 text-base md:text-lg mb-2">
+        Bombi está en el piso <strong className="text-red-600">{bombiFloor}</strong> y el fuego en el piso <strong className="text-orange-500">{fireFloor}</strong>.
+      </p>
+      <h2 className="text-center font-bold text-xl md:text-2xl text-gray-800 mb-2">
+        {title}
+      </h2>
+      
+      {isCarryMode && minuend >= 10 && isCorrect !== true && (
+        <div className="my-2 p-2 bg-yellow-100/70 border-l-4 border-yellow-400 text-yellow-800 rounded-r-lg animate-fade-in-scale-up">
+          <p className="font-bold text-sm">¡Pista!</p>
+          <p className="text-sm">Como Bombi no puede bajar del piso {bombiFloor} al {fireFloor % 10}, ¡llévalo hasta el piso {fireFloor} y acuérdate de llevarte una!</p>
+        </div>
+      )}
+
+
+      {isCorrect === true ? (
+        <div className="text-center py-10 animate-tada">
+            <p className="text-3xl font-bold text-green-600">¡MUY BIEN!</p>
+            <p className="text-green-700 mt-2 text-lg">🎉 ¡Rescate completado! 🎉</p>
+        </div>
+      ) : (
+        <form onSubmit={handleSubmit} className="mt-4">
+          <div className="flex items-center justify-center space-x-2 text-3xl md:text-4xl font-bold mb-4">
+            <span className="text-orange-500">{minuend}</span>
+            <span className="text-gray-600">-</span>
+            <span className="text-red-600">{subtrahend}</span>
+            <span className="text-gray-600">=</span>
+            <input
+              type="text"
+              value={answer}
+              onChange={handleInputChange}
+              className={`${inputBaseClasses} ${isShaking ? inputErrorClasses : inputNormalClasses}`}
+              maxLength={2}
+              autoFocus
+              aria-label="Tu respuesta"
+            />
+          </div>
+          
+          <button
+            type="submit"
+            className="w-full bg-blue-500 text-white font-bold py-2 px-4 rounded-lg text-lg hover:bg-blue-600 focus:outline-none focus:ring-4 focus:ring-blue-300 transition-transform transform hover:scale-105 disabled:bg-gray-400 disabled:scale-100 disabled:cursor-not-allowed"
+            disabled={answer.trim() === ''}
+          >
+            ¡Comprobar!
+          </button>
+        </form>
+      )}
+
+      {isCorrect === false && (
+        <div className="text-center mt-2">
+          <p className="text-red-600 mt-1">¡Inténtalo de nuevo!</p>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// components/Rewards.tsx
+const MEDALS = [
+  { id: 1, count: 5, label: '5 Rescates', color: 'text-amber-500' },
+  { id: 2, count: 10, label: '10 Rescates', color: 'text-slate-400' },
+  { id: 3, count: 25, label: '25 Rescates', color: 'text-yellow-500' },
+  { id: 4, count: 50, label: '¡50 Rescates!', color: 'text-cyan-400' },
+];
+
+const Rewards = ({ correctAnswersCount, newlyEarnedMedal }) => {
+  return (
+    <div className="relative bg-white/70 backdrop-blur-sm p-3 rounded-2xl inline-block shadow-md">
+       {newlyEarnedMedal && (
+        <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-gradient-to-r from-yellow-400 to-orange-500 text-white font-bold text-sm px-4 py-1 rounded-full shadow-lg animate-fade-in-out-up whitespace-nowrap">
+          ¡Medalla Ganada!
+        </div>
+      )}
+      <h3 className="text-base font-semibold text-slate-700 mb-1 sr-only">Tus Medallas</h3>
+      <div className="flex justify-center items-end space-x-4 sm:space-x-6">
+        {MEDALS.map(medal => {
+          const earned = correctAnswersCount >= medal.count;
+          const isNewlyEarned = newlyEarnedMedal === medal.count;
+          return (
+            <div key={medal.id} className="flex flex-col items-center text-center" title={`${medal.label} (${correctAnswersCount}/${medal.count})`}>
+              <div className={`relative transition-all duration-500 ${earned ? 'opacity-100 scale-110' : 'opacity-40 grayscale'} ${isNewlyEarned ? 'animate-medal-pop' : ''}`}>
+                <MedalIcon className={`w-12 h-12 sm:w-14 sm:h-14 ${medal.color}`} />
+              </div>
+              <span className={`text-xs mt-1 font-bold ${earned ? 'text-slate-800' : 'text-slate-500'}`}>
+                {medal.label}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
+// components/Confetti.tsx
+const CONFETTI_COUNT = 80;
+const COLORS = ['#f44336', '#e91e63', '#9c27b0', '#673ab7', '#3f51b5', '#2196f3', '#03a9f4', '#00bcd4', '#009688', '#4caf50', '#8bc34a', '#cddc39', '#ffeb3b', '#ffc107', '#ff9800'];
+
+const Confetti = React.memo(() => {
+  const confetti = React.useMemo(() => 
+    Array.from({ length: CONFETTI_COUNT }).map((_, i) => {
+      const style = {
+        left: `${Math.random() * 100}%`,
+        animationDuration: `${Math.random() * 3 + 2}s`, // 2s to 5s
+        animationDelay: `${Math.random() * 2}s`,
+        backgroundColor: COLORS[Math.floor(Math.random() * COLORS.length)],
+        transform: `rotate(${Math.random() * 360}deg)`,
+      };
+      return <div key={i} className="confetti-piece" style={style}></div>;
+    }),
+  []);
+
+  return <div className="confetti-container">{confetti}</div>;
+});
+
+// components/GameModeSelector.tsx
+const GameModeSelector = ({ onSelect }) => {
+  return (
+    <div className="fixed inset-0 bg-sky-300/80 backdrop-blur-md z-50 flex items-center justify-center animate-fade-in-scale-up">
+      <div className="bg-white/90 p-8 rounded-3xl shadow-2xl text-center max-w-md w-full mx-4">
+        <h2 className="text-3xl md:text-4xl font-bold text-slate-800 mb-6">¿Cómo quieres jugar hoy?</h2>
+        <div className="flex flex-col sm:flex-row gap-4">
+          <button
+            onClick={() => onSelect('freePlay')}
+            className="flex-1 bg-green-500 text-white font-bold py-4 px-6 rounded-xl text-lg hover:bg-green-600 focus:outline-none focus:ring-4 focus:ring-green-300 transition-transform transform hover:scale-105"
+          >
+            🎨 Juego Libre
+            <p className="font-normal text-sm mt-1">Coloca las piezas donde quieras</p>
+          </button>
+          <button
+            onClick={() => onSelect('challenge')}
+            className="flex-1 bg-blue-500 text-white font-bold py-4 px-6 rounded-xl text-lg hover:bg-blue-600 focus:outline-none focus:ring-4 focus:ring-blue-300 transition-transform transform hover:scale-105"
+          >
+            🏆 Resuelve Retos
+            <p className="font-normal text-sm mt-1">Resuelve las restas que te propongo</p>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// components/CarryModeSelector.tsx
+const CarryModeSelector = ({ onSelect }) => {
+  return (
+    <div className="fixed inset-0 bg-sky-300/80 backdrop-blur-md z-50 flex items-center justify-center animate-fade-in-scale-up">
+      <div className="bg-white/90 p-8 rounded-3xl shadow-2xl text-center max-w-lg w-full mx-4">
+        <h1 className="text-3xl md:text-4xl font-bold text-slate-800 mb-2">¡Bombi al Rescate!</h1>
+        <p className="text-slate-600 mb-6 text-lg">Elige qué tipo de restas quieres practicar.</p>
+        <div className="flex flex-col sm:flex-row gap-4">
+          <button
+            onClick={() => onSelect('simple')}
+            className="flex-1 bg-cyan-500 text-white font-bold py-4 px-6 rounded-xl text-lg hover:bg-cyan-600 focus:outline-none focus:ring-4 focus:ring-cyan-300 transition-transform transform hover:scale-105"
+          >
+            👍 Restas Simples
+            <p className="font-normal text-sm mt-1">Sin llevarse ninguna</p>
+          </button>
+          <button
+            onClick={() => onSelect('carry')}
+            className="flex-1 bg-purple-500 text-white font-bold py-4 px-6 rounded-xl text-lg hover:bg-purple-600 focus:outline-none focus:ring-4 focus:ring-purple-300 transition-transform transform hover:scale-105"
+          >
+            🧠 Restas con Llevada
+            <p className="font-normal text-sm mt-1">¡Un reto mayor!</p>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// components/CursorFollower.tsx
+const CursorFollower = ({ itemType, position }) => {
+  const style = {
+    position: 'fixed',
+    left: position.x,
+    top: position.y,
+    transform: 'translate(-50%, -50%) scale(1.2)', // Centra en el cursor y lo hace un poco más grande
+    pointerEvents: 'none',
+    zIndex: 1000,
+    transition: 'transform 0.1s ease-out',
+  };
+
+  return (
+    <div style={style}>
+      {itemType === ItemType.FIRE ? (
+        <FireIcon className="w-14 h-14 text-orange-500 drop-shadow-lg" />
+      ) : (
+        <FirefighterIcon className="w-14 h-14 drop-shadow-lg" />
+      )}
+    </div>
+  );
+};
+
+// components/Tutorial.tsx
+const Tutorial = ({ gameMode, onClose }) => {
+  const isFreePlay = gameMode === 'freePlay';
+
+  const freePlaySteps = [
+    { icon: '🖐️', text: 'Coge a Bombi y al fuego de la zona de piezas.' },
+    { icon: '🏢', text: 'Colócalos en los pisos que quieras del edificio.' },
+    { icon: '✍️', text: '¡Resuelve la resta que has creado!' },
+  ];
+
+  const challengeSteps = [
+    { icon: '🤔', text: 'Mira la resta que te proponemos.' },
+    { icon: '⌨️', text: 'Introduce la respuesta correcta en la casilla.' },
+    { icon: '💡', text: '¡Usa a Bombi y el fuego para contar si lo necesitas!' },
+  ];
+
+  const steps = isFreePlay ? freePlaySteps : challengeSteps;
+  const title = isFreePlay ? '🎨 Modo Juego Libre' : '🏆 Modo Reto';
+  const buttonText = isFreePlay ? '¡A Jugar!' : '¡Entendido!';
+
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in-scale-up">
+      <div className="bg-white/95 p-6 sm:p-8 rounded-3xl shadow-2xl text-center max-w-md w-full mx-4 border-4 border-blue-300">
+        <h2 className="text-2xl sm:text-3xl font-bold text-slate-800 mb-6">{title}</h2>
+        <div className="space-y-4 text-left">
+          {steps.map((step, index) => (
+            <div key={index} className="flex items-center gap-4 p-3 bg-slate-100 rounded-lg">
+              <span className="text-3xl">{step.icon}</span>
+              <p className="text-slate-700 text-base sm:text-lg">{step.text}</p>
+            </div>
+          ))}
+        </div>
+        <button
+          onClick={onClose}
+          className="mt-8 w-full bg-blue-500 text-white font-bold py-3 px-6 rounded-xl text-lg hover:bg-blue-600 focus:outline-none focus:ring-4 focus:ring-blue-300 transition-transform transform hover:scale-105"
+        >
+          {buttonText}
+        </button>
+      </div>
+    </div>
+  );
+};
+
+
+// App.tsx
+const MEDAL_THRESHOLDS = [5, 10, 25, 50];
+const TOP_FLOOR_SIMPLE = 9;
+const TOP_FLOOR_CARRY = 19;
+
+function App() {
+  const [subtractionType, setSubtractionType] = useState(null);
+  const [gameMode, setGameMode] = useState('selecting');
+  const [showTutorial, setShowTutorial] = useState(false);
+  
+  const [problem, setProblem] = useState({ fire: 5, bombi: 2 });
+  const [displayFireFloor, setDisplayFireFloor] = useState(5);
+  const [displayBombiFloor, setDisplayBombiFloor] = useState(2);
+  
+  const [answer, setAnswer] = useState('');
+  const [isCorrect, setIsCorrect] = useState(null);
+  const [heldItem, setHeldItem] = useState(null);
+  const [cursorPosition, setCursorPosition] = useState({ x: -100, y: -100 });
+  
+  const [isCelebrating, setIsCelebrating] = useState(false);
+  const [newlyEarnedMedal, setNewlyEarnedMedal] = useState(null);
+  const [lastMove, setLastMove] = useState({type: null, floor: null});
+
+
+  const [correctAnswersCount, setCorrectAnswersCount] = useState(() => {
+    const savedCount = localStorage.getItem('correctAnswersCount');
+    return savedCount ? JSON.parse(savedCount) : 0;
+  });
+
+  const audioCtxRef = useRef(null);
+
+  // Update cursor position
+  useEffect(() => {
+    const handleMouseMove = (e) => {
+      setCursorPosition({ x: e.clientX, y: e.clientY });
+    };
+    if (heldItem) {
+      window.addEventListener('mousemove', handleMouseMove);
+    }
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+    };
+  }, [heldItem]);
+
+  // Clear the last move after animation to prevent re-triggering
+  useEffect(() => {
+    if (lastMove.type) {
+        const timer = setTimeout(() => {
+            setLastMove({ type: null, floor: null });
+        }, 500); // Animation is 400ms
+        return () => clearTimeout(timer);
+    }
+  }, [lastMove]);
+  
+  useEffect(() => {
+    localStorage.setItem('correctAnswersCount', JSON.stringify(correctAnswersCount));
+  }, [correctAnswersCount]);
+
+  const generateNewProblem = useCallback(() => {
+    setIsCelebrating(false);
+    setAnswer('');
+    setIsCorrect(null);
+
+    if (subtractionType === 'carry') {
+        let newFireFloor, newBombiFloor;
+        
+        do {
+            newFireFloor = Math.floor(Math.random() * 10) + 10; // 10 to 19
+            newBombiFloor = Math.floor(Math.random() * 10);   // 0 to 9
+        } while (newFireFloor % 10 >= newBombiFloor); // Ensure unit digit of fire is less than bombi for a "carry" op
+        
+        setProblem({ fire: newFireFloor, bombi: newBombiFloor });
+        setDisplayFireFloor(newFireFloor);
+        setDisplayBombiFloor(newBombiFloor);
+
+    } else { // 'simple' mode
+        let newFireFloor, newBombiFloor;
+        
+        do {
+          newFireFloor = Math.floor(Math.random() * (TOP_FLOOR_SIMPLE + 1));
+          newBombiFloor = Math.floor(Math.random() * (TOP_FLOOR_SIMPLE + 1));
+        } while (newBombiFloor === newFireFloor);
+        
+        // In simple mode, the larger number is always the minuend
+        if (newBombiFloor > newFireFloor) {
+          [newBombiFloor, newFireFloor] = [newFireFloor, newBombiFloor];
+        }
+        
+        setProblem({ fire: newFireFloor, bombi: newBombiFloor });
+        setDisplayFireFloor(newFireFloor);
+        setDisplayBombiFloor(newBombiFloor);
+    }
+  }, [subtractionType]);
+
+  const playSound = useCallback((type) => {
+    if (!audioCtxRef.current) {
+      try {
+        audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)();
+      } catch (e) {
+        console.error("Web Audio API is not supported in this browser");
+        return;
+      }
+    }
+    const audioCtx = audioCtxRef.current;
+    if (!audioCtx) return;
+    if (audioCtx.state === 'suspended') {
+      audioCtx.resume();
+    }
+    
+    const oscillator = audioCtx.createOscillator();
+    const gainNode = audioCtx.createGain();
+    oscillator.connect(gainNode);
+    gainNode.connect(audioCtx.destination);
+  
+    if (type === 'pickup') {
+      gainNode.gain.setValueAtTime(0.08, audioCtx.currentTime);
+      oscillator.type = 'sine';
+      oscillator.frequency.setValueAtTime(440, audioCtx.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime + 0.1);
+      oscillator.start();
+      oscillator.stop(audioCtx.currentTime + 0.1);
+    } else if (type === 'drop') {
+      gainNode.gain.setValueAtTime(0.08, audioCtx.currentTime);
+      oscillator.type = 'sine';
+      oscillator.frequency.setValueAtTime(330, audioCtx.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime + 0.1);
+      oscillator.start();
+      oscillator.stop(audioCtx.currentTime + 0.1);
+    } else if (type === 'climb') {
+      gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+      oscillator.type = 'square';
+      oscillator.frequency.setValueAtTime(300, audioCtx.currentTime);
+      oscillator.frequency.linearRampToValueAtTime(1000, audioCtx.currentTime + 1);
+      gainNode.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime + 1.2);
+      oscillator.start();
+      oscillator.stop(audioCtx.currentTime + 1.2);
+    } else if (type === 'correct') {
+      gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+      oscillator.type = 'sine';
+      oscillator.frequency.setValueAtTime(523.25, audioCtx.currentTime);
+      oscillator.frequency.linearRampToValueAtTime(783.99, audioCtx.currentTime + 0.1);
+      gainNode.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime + 0.2);
+      oscillator.start();
+      oscillator.stop(audioCtx.currentTime + 0.2);
+    } else if (type === 'medal') {
+      const now = audioCtx.currentTime;
+      oscillator.type = 'triangle';
+      gainNode.gain.setValueAtTime(0.2, now);
+      oscillator.frequency.setValueAtTime(523.25, now);
+      oscillator.frequency.setValueAtTime(659.25, now + 0.1);
+      oscillator.frequency.setValueAtTime(783.99, now + 0.2);
+      oscillator.frequency.setValueAtTime(1046.50, now + 0.3);
+      gainNode.gain.exponentialRampToValueAtTime(0.00001, now + 0.5);
+      oscillator.start();
+      oscillator.stop(now + 0.5);
+    }
+  }, []);
+
+  const handleItemClick = (type) => {
+    if (isCelebrating || heldItem) return;
+    playSound('pickup');
+    setHeldItem(type);
+  };
+  
+  const handleFloorClick = (targetFloor) => {
+    if (!heldItem) return;
+    playSound('drop');
+    setLastMove({ type: heldItem, floor: targetFloor });
+
+    if (gameMode === 'challenge') {
+      if (heldItem === ItemType.FIRE) {
+        setDisplayFireFloor(targetFloor);
+      } else if (heldItem === ItemType.BOMBI) {
+        setDisplayBombiFloor(targetFloor);
+      }
+      setHeldItem(null);
+      return;
+    }
+
+    // --- Logic for freePlay mode ---
+    let newFireFloor = displayFireFloor;
+    let newBombiFloor = displayBombiFloor;
+
+    if (heldItem === ItemType.FIRE) {
+      newFireFloor = targetFloor;
+    } else if (heldItem === ItemType.BOMBI) {
+      newBombiFloor = targetFloor;
+    }
+    
+    // Always update visual positions
+    setDisplayFireFloor(newFireFloor);
+    setDisplayBombiFloor(newBombiFloor);
+    
+    // Only update the problem if the pieces are moved to DIFFERENT floors.
+    if (newFireFloor !== null && newBombiFloor !== null && newFireFloor !== newBombiFloor) {
+      const fire = newFireFloor;
+      const bombi = newBombiFloor;
+      
+      // For carry mode, fire must be >= 10 and bombi < 10 with carry condition.
+      // If user placement doesn't allow a valid carry problem, we don't create one.
+      if (subtractionType === 'carry' && (fire < 10 || bombi >= 10 || fire % 10 >= bombi)) {
+         // Invalid carry problem, we can just show the pieces without a solvable problem.
+         setProblem({ fire: 0, bombi: 0 }); // Reset problem to avoid confusion
+      } else {
+        setProblem({ fire, bombi });
+      }
+
+      setAnswer('');
+      setIsCorrect(null);
+      setIsCelebrating(false);
+    }
+    
+    setHeldItem(null);
+  };
+
+  const handleModeSelect = (mode) => {
+    setGameMode(mode);
+    setHeldItem(null);
+    setShowTutorial(true);
+    if (mode === 'challenge') {
+      generateNewProblem();
+    } else {
+      const initialProblem = subtractionType === 'carry' ? { fire: 12, bombi: 3 } : { fire: 5, bombi: 2 };
+      setProblem(initialProblem);
+      setDisplayFireFloor(null);
+      setDisplayBombiFloor(null);
+      setAnswer('');
+      setIsCorrect(null);
+      setIsCelebrating(false);
+    }
+  };
+
+
+  const checkAnswer = () => {
+    const minuend = subtractionType === 'carry' ? problem.fire : Math.max(problem.fire, problem.bombi);
+    const subtrahend = subtractionType === 'carry' ? problem.bombi : Math.min(problem.fire, problem.bombi);
+    const correctAnswer = minuend - subtrahend;
+
+    if (parseInt(answer, 10) === correctAnswer) {
+      setIsCorrect(true);
+      playSound('correct');
+      setIsCelebrating(true);
+      
+      if (gameMode === 'challenge') {
+        playSound('climb');
+        
+        const newCount = correctAnswersCount + 1;
+        if (MEDAL_THRESHOLDS.includes(newCount)) {
+          playSound('medal');
+          setNewlyEarnedMedal(newCount);
+          setTimeout(() => setNewlyEarnedMedal(null), 1500);
+        }
+        setCorrectAnswersCount(newCount);
+
+        setTimeout(() => {
+          generateNewProblem();
+        }, 2500);
+
+      } else { // In free play, just celebrate.
+        playSound('climb');
+        setTimeout(() => {
+          setIsCelebrating(false);
+        }, 2500);
+      }
+    } else {
+      setIsCorrect(false);
+    }
+  };
+
+  const setAnswerWrapper = (value) => {
+    if (isCorrect !== null) {
+        setIsCorrect(null);
+    }
+    setAnswer(value);
+  }
+  
+  const getFooterText = () => {
+    if (heldItem) {
+      return 'Haz clic en un piso del edificio para colocarlo.';
+    }
+    if (gameMode === 'freePlay') {
+        if (displayFireFloor === null || displayBombiFloor === null) {
+            return 'Haz clic en una pieza para cogerla.';
+        }
+        return '¡Mueve a Bombi y al fuego para crear nuevas restas!';
+    }
+    return 'Haz clic en el fuego o en Bombi si necesitas ayuda para contar.';
+  };
+  
+  if (!subtractionType) {
+    return <CarryModeSelector onSelect={setSubtractionType} />;
+  }
+
+  if (gameMode === 'selecting') {
+    return <GameModeSelector onSelect={handleModeSelect} />;
+  }
+  
+  const isCarryMode = subtractionType === 'carry';
+  const isTallBuilding = isCarryMode;
+
+  return (
+    <div className="min-h-screen w-full flex flex-col items-center justify-center p-4 font-sans bg-transparent overflow-hidden relative">
+      {showTutorial && <Tutorial gameMode={gameMode} onClose={() => setShowTutorial(false)} />}
+      <button
+        onClick={() => { setGameMode('selecting'); setSubtractionType(null); }}
+        className="absolute top-4 left-4 z-30 bg-white/80 backdrop-blur-sm pl-3 pr-4 py-2 rounded-full shadow-md hover:bg-white transition-transform hover:scale-105 flex items-center gap-2 text-slate-700 font-semibold"
+        aria-label="Volver al menú principal"
+      >
+        <HomeIcon className="w-5 h-5" />
+        <span>Menú</span>
+      </button>
+
+      {heldItem && <CursorFollower itemType={heldItem} position={cursorPosition} />}
+      {isCelebrating && <Confetti />}
+      
+      {isCelebrating && (
+        <div className="absolute top-24 md:top-32 left-1/2 -translate-x-1/2 z-20 text-center pointer-events-none">
+          <h2 
+            className="text-4xl md:text-6xl font-bold text-white bg-gradient-to-r from-green-400 via-cyan-400 to-blue-500 p-4 rounded-2xl shadow-2xl animate-fade-in-out-up"
+            aria-live="polite"
+          >
+            ¡Bien Hecho!
+          </h2>
+        </div>
+      )}
+
+      <header className="text-center mb-4 z-10">
+        <h1 className="text-3xl md:text-5xl font-bold text-slate-800 drop-shadow-lg">
+          ¡Bombi al Rescate!
+        </h1>
+        <p className="text-slate-700 font-semibold text-lg">{isCarryMode ? 'Restas con Llevada' : 'Restas Simples'}</p>
+      </header>
+      <main className="flex flex-col items-center justify-center gap-6 w-full z-10">
+        {gameMode === 'challenge' && <Rewards correctAnswersCount={correctAnswersCount} newlyEarnedMedal={newlyEarnedMedal} />}
+        <div className="flex flex-col lg:flex-row items-center lg:items-start justify-center gap-4 lg:gap-8 w-full">
+          <Building 
+            fireFloor={displayFireFloor} 
+            bombiFloor={displayBombiFloor} 
+            onItemClick={handleItemClick}
+            onFloorClick={handleFloorClick}
+            heldItem={heldItem}
+            isCelebrating={isCelebrating}
+            problem={problem}
+            lastMove={lastMove}
+            floorCount={isCarryMode ? TOP_FLOOR_CARRY + 1 : TOP_FLOOR_SIMPLE + 1}
+          />
+          <div className="flex flex-col items-center gap-4 w-full max-w-xs">
+            {gameMode === 'challenge' && (
+              <Problem 
+                key={`${problem.fire}-${problem.bombi}`}
+                fireFloor={problem.fire}
+                bombiFloor={problem.bombi}
+                answer={answer}
+                setAnswer={setAnswerWrapper}
+                checkAnswer={checkAnswer}
+                isCorrect={isCorrect}
+                title="¿Cuántos pisos hay de diferencia?"
+                subtractionType={subtractionType}
+              />
+            )}
+            {gameMode === 'freePlay' && (
+              <>
+                {(displayFireFloor !== null && displayBombiFloor !== null) ? (
+                  <Problem
+                    key={`${problem.fire}-${problem.bombi}-freeplay`}
+                    fireFloor={problem.fire}
+                    bombiFloor={problem.bombi}
+                    answer={answer}
+                    setAnswer={setAnswerWrapper}
+                    checkAnswer={checkAnswer}
+                    isCorrect={isCorrect}
+                    title="¡Resuelve la resta que has creado!"
+                    subtractionType={subtractionType}
+                  />
+                ) : (
+                  <div className="w-full p-4 bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200 text-center flex items-center justify-center h-56">
+                      <p className="text-slate-600 font-semibold text-lg animate-pulse">Coloca a Bombi y al fuego en el edificio para ver la resta.</p>
+                  </div>
+                )}
+                <div className="p-4 bg-white/60 backdrop-blur-sm rounded-2xl shadow-lg flex items-center justify-center gap-8 min-h-[96px] w-full">
+                    {(displayFireFloor === null || displayBombiFloor === null) && (
+                         <p className="font-semibold text-slate-700">Tus piezas:</p>
+                    )}
+                    <div className="flex gap-4">
+                        {displayBombiFloor === null && heldItem !== ItemType.BOMBI && (
+                            <DraggableItem type={ItemType.BOMBI} onClick={handleItemClick} isTall={isTallBuilding} />
+                        )}
+                        {displayFireFloor === null && heldItem !== ItemType.FIRE && (
+                            <DraggableItem type={ItemType.FIRE} onClick={handleItemClick} isTall={isTallBuilding} />
+                        )}
+                    </div>
+                    {displayBombiFloor !== null && displayFireFloor !== null && (
+                        <p className="text-slate-700">¡Puedes moverlos a otros pisos!</p>
+                    )}
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      </main>
+      <footer className="mt-4 text-center text-slate-800 font-semibold drop-shadow-md z-10">
+        <p>{getFooterText()}</p>
+      </footer>
+    </div>
+  );
+}
+
+// index.tsx
+const rootElement = document.getElementById('root');
+if (!rootElement) {
+  throw new Error("Could not find root element to mount to");
+}
+
+const root = ReactDOM.createRoot(rootElement);
+root.render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>
+);
+  </script>
+<script type="module" src="/index.tsx"></script>
+</body>
+</html>
