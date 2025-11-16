@@ -27,7 +27,7 @@
     min-height: 100vh;
   }
   body {
-    background: linear-gradient(to bottom, #87CEEB 0%, #a7d9ff 70%, #4ade80 70%, #34d399 100%);
+    background-color: #d0e8f8;
   }
 
   @keyframes bob {
@@ -45,16 +45,28 @@
   }
   @keyframes flicker {
     0%, 100% {
-      transform: scale(1) rotate(-1deg);
+      transform: scale(1, 1) rotate(1deg);
       opacity: 1;
     }
-    50% {
-      transform: scale(1.05) rotate(1deg);
-      opacity: 0.95;
+    20% {
+        transform: scale(1.1, 0.9) rotate(-2deg) translateY(-5%);
+        opacity: 0.9;
+    }
+    40% {
+        transform: scale(0.95, 1.05) rotate(2deg) translateY(0%);
+        opacity: 1;
+    }
+    60% {
+        transform: scale(1.05, 0.95) rotate(1deg) translateY(-2%);
+        opacity: 0.85;
+    }
+    80% {
+        transform: scale(1, 1) rotate(-1deg) translateY(0);
+        opacity: 1;
     }
   }
   .animate-flicker {
-    animation: flicker 1.2s infinite ease-in-out;
+    animation: flicker 0.9s infinite linear;
   }
   @keyframes shake {
     10%, 90% { transform: translate3d(-1px, 0, 0); }
@@ -148,61 +160,62 @@ var ItemType;
 })(ItemType || (ItemType = {}));
 
 // components/icons/FireIcon.tsx
+const FIRE_IMAGE_BASE64 = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iI2Y5NzMwOCIgc3Ryb2tlPSIjZWY0NDQ0IiBzdHJva2Utd2lkdGg9IjEuNSI+CiAgPHBhdGggc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIiBkPSJNMTIuODg0IDMuMTY5Yy4zMDMtLjI4OC41MTItLjY3NS41MTItMS4xMTlDMTMuMzk2Ljc1OCAxMi42MzcuMDAyIDEyLjAwMi4wMDJjLS4zMiAwLS42MjIuMTE4LS44NTcuMzMzYy0zLjY2MyAzLjQ5My00LjIxNCA5LjQ0NS0xLjI0IDEzLjQ5MWMuMTU0LjIxLjM1LjQuNDA2LjU1My4wNzIuMDY5LjE1LjEzMy4yMzIuMTg5LjMxLjIxOC42ODUuMjEgMS4wMDItLjAwMmMzLjAxOS0yLjAxIDQuMTk2LTcuMjI5IDEuNDg3LTEwLjQwN3oiIC8+CiAgPHBhdGggc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIiBkPSJNMTcuMzE0IDcuNTE4Yy0uODIyLTEuMDA1LTEuODUyLTEuODMtMi45MjYtMi40MjJjLTEuNjA5LS44ODYtMy4wMTUtMS4xMTgtNC4yNjYtLjc0MmMtMS4wMTcuMzA4LTEuODgzLjk1Ny0yLjQxMiAxLjc2M2MtMy4xNDcgNC43OTEtLjc1MyAxMS4wNDIgMy42NTIgMTMuNzljLjg1Ni41MzQgMS43ODcuODMgMi43NTMuODNjMS4zODQtLjAwMyAyLjc0OC0uNjAzIDMuNzUtMS42MTVjNC45MjgtNC45NzkgMy4yNjQtMTIuOTA2LTEuNTUxLTE1LjYwN3oiIC8+Cjwvc3ZnPgo=';
 const FireIcon = ({ className }) => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    viewBox="0 0 24 24"
-    className={className}
-    aria-label="Fuego"
-  >
-    <defs>
-      <linearGradient id="fireGradient" x1="50%" y1="0%" x2="50%" y2="100%">
-        <stop offset="0%" stopColor="#FBBF24" />
-        <stop offset="100%" stopColor="#F97316" />
-      </linearGradient>
-    </defs>
-    <path
-      fill="url(#fireGradient)"
-      d="M12.6,2.2c-0.1-0.2-0.3-0.2-0.4-0.1C12,2.2,6.5,6.4,6.5,12.2c0,3.3,2.4,6.1,5.5,6.1s5.5-2.8,5.5-6.1 C17.5,8.8,14.2,5.2,12.6,2.2z"
+    <img 
+        src={FIRE_IMAGE_BASE64} 
+        className={className} 
+        alt="Fuego" 
+        style={{ objectFit: 'contain' }}
     />
-    <path
-      fill="#FEF3C7"
-      d="M12.4,6.8c-0.1-0.1-0.2-0.1-0.2,0c-0.1,0.1-2.9,2.2-2.9,5.2c0,1.9,1.4,3.4,3,3.4s3-1.5,3-3.4 C15.3,9.5,13.2,7.5,12.4,6.8z"
-    />
-  </svg>
 );
+
 
 // components/icons/FirefighterIcon.tsx
 const FirefighterIcon = ({ className }) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
-    viewBox="0 0 24 24"
+    viewBox="0 0 80 80"
     className={className}
     aria-label="Bombero Bombi"
   >
-    <g>
-        {/* Hose */}
-        <path
-            d="M5,15 C2,15 2,21 5,21"
-            stroke="#4B5563"
-            strokeWidth="3"
-            fill="none"
-            strokeLinecap="round"
-        />
-        <path fill="#374151" d="M3 14h2v3H3z" />
-        
-        {/* Suit */}
-        <path fill="#DC2626" d="M8 10h8v10H8z" />
-        
-        {/* Boots */}
-        <path fill="#1F2937" d="M8 20h3v2H8zm5 0h3v2h-3z" />
-        
-        {/* Face */}
-        <path fill="#FDE68A" d="M9 7h6v4H9z" />
-        
-        {/* Helmet */}
-        <path fill="#FBBF24" d="M12 2a4.5 4.5 0 00-4.5 4.5V8h9V6.5A4.5 4.5 0 0012 2z" />
-        <path fill="#F59E0B" d="M6 8h12v1H6z" />
+    <g stroke="#231f20" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      {/* Water Stream */}
+      <path fill="#65cfff" d="M37.26 40.7C22.68 33.6 8.8 28.14-2.78 24.3c-1.3-.43-.73-2.3 1.15-2.22 10.3.48 20.6.96 30.9 1.45 2.19.1 3.58 2.37 2.69 4.38-3.08 6.94-6.17 13.88-9.25 20.82-.76 1.71.72 3.51 2.6 3.23l.13-.05" />
+      <path fill="none" stroke="#231f20" d="M5.37 23.32s-1.89-2.9-3.79-3.2c-1.9-.31-3.79.62-4.74 2.33s-1.04 3.71.85 4.64 4.45.4 5.68-1.3" />
+      <path fill="none" stroke="#231f20" d="M11.95 19.95s-2.83-2.12-4.58-1.2-2.42 3.32-1.48 5.05.9 2.4 3.36 1.48 4.58-2.12 2.7-5.33" />
+      <path fill="none" stroke="#231f20" d="M9.2 16.27s-1.48-3.32-3.77-3.32-3.77 1.48-3.36 3.77 1.88 3.77 4.17 3.36 2.96-1.48 2.96-3.81" />
+      
+      {/* Body and Clothes */}
+      <path fill="#d93333" d="M61.2,46.1v25.2c0,2.1-3.2,3.8-3.2,3.8H42.5s-3.2-1.7-3.2-3.8V46.1H61.2z" />
+      <path fill="#231f20" d="M39.3,80.1h21.9v4.9H39.3V80.1z" />
+      <path fill="#d93333" d="M40.3 43.1h20v14.4h-20z" />
+      <path fill="#e85b5b" d="M50.8,43.1l-3,6.6h-1.5l4-8.7h1l4,8.7h-1.5L50.8,43.1z" />
+      <path fill="#231f20" d="M39.3,64.1h21.9v5.4H39.3V64.1z" />
+      <rect x="48.8" y="65.3" width="2.7" height="2.7" fill="#cccccc" stroke="none" />
+      <rect x="48.8" y="69.7" width="2.7" height="2.7" fill="#cccccc" stroke="none" />
+      
+      {/* Head and Helmet */}
+      <path fill="#fddab9" d="M49.8,30.1h12c2.1,0,2.1,9.4-3.2,9.4h-6.3C47.2,39.5,47.7,30.1,49.8,30.1z" />
+      <path fill="#6a4f4b" d="M49.8 30.1c-1-1.5 0-3 2-3h6c2 0 3 1.5 2 3H49.8z"/>
+      <circle cx="53.8" cy="35.5" r=".7" fill="#231f20" stroke="none" />
+      <circle cx="59.8" cy="35.5" r=".7" fill="#231f20" stroke="none" />
+      <path fill="none" d="M54.8,37.3c1,1,3,1,4,0" />
+      <path fill="#fecb00" d="M46.8,24.1c0-3.8,3.2-7,7.5-7s7.5,3.2,7.5,7v6.5h-15V24.1z" />
+      <path fill="#fecb00" d="M44.3,30.6h20v2.2h-20z" />
+      <path fill="#fecb00" d="M46.8,24.1c-2.1,1.1-3.2,4.3-1.1,6.5h-1.1c-2.1-3.2,0-7.5,3.2-8.6L46.8,24.1z" />
+      <path fill="#fecb00" d="M64.3,24.1c2.1,1.1,3.2,4.3,1.1,6.5h1.1c2.1-3.2,0-7.5-3.2-8.6L64.3,24.1z" />
+      <path fill="#fecb00" d="M53.8,17.1c-2.1,0-3.2,3.2-1.1,4.9h-1.1c-2.1-2.1-1.1-5.9,2.1-5.9L53.8,17.1z" />
+      <path fill="#fecb00" d="M57.8,17.1c2.1,0,3.2,3.2,1.1,4.9h1.1c2.1-2.1,1.1-5.9-2.1-5.9L57.8,17.1z" />
+      <circle cx="55.8" cy="24.1" r="2.7" fill="#fff" />
+      <text x="55.8" y="25.9" textAnchor="middle" fontSize="3.5" fill="#231f20" fontFamily="sans-serif" fontWeight="bold">B</text>
+      
+      {/* Hose and Hands */}
+      <path fill="#b0b0b0" d="M61.2,46.1c-4.3-4.3-10.8-10.8-10.8-10.8L36.3,49.4c0,0,6.5,6.5,10.8,10.8S61.2,46.1,61.2,46.1z" />
+      <path fill="#888888" d="M40.8,40.1c-1.6-1.6-1.1-4.3,1.1-4.3s15.1,15.1,15.1,15.1" />
+      <path fill="#c7c7c7" d="M36.7,41.2c-1.6-1.6-1.1-4.3,1.1-4.3s15.1,15.1,15.1,15.1S38.3,42.8,36.7,41.2z" />
+      <path fill="#fddab9" d="M44.3,46.1c0,0-8.6-8.6-9.7-9.7c-1.1-1.1-1.1-2.7,1.1-2.7s9.7,9.7,9.7,9.7L44.3,46.1z" />
+      <path fill="#fddab9" d="M48.3,51.1c0,0-8.6-8.6-9.7-9.7c-1.1-1.1-1.1-2.7,1.1-2.7s9.7,9.7,9.7,9.7L48.3,51.1z" />
     </g>
   </svg>
 );
@@ -419,7 +432,7 @@ const Problem = ({
   const inputErrorClasses = "border-red-500 focus:ring-red-300 focus:border-red-500 animate-shake";
 
   return (
-    <div className={`w-full max-w-xs p-4 bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border transition-all duration-300 animate-fade-in-scale-up ${isCorrect === true ? 'border-green-400 ring-4 ring-green-200' : 'border-gray-200'}`}>
+    <div className={`w-full max-w-xs p-4 bg-slate-50/80 backdrop-blur-sm rounded-2xl shadow-lg border transition-all duration-300 animate-fade-in-scale-up ${isCorrect === true ? 'border-green-400 ring-4 ring-green-200' : 'border-white/30'}`}>
       <p className="text-center text-gray-700 text-base md:text-lg mb-2">
         Bombi está en el piso <strong className="text-red-600">{bombiFloor}</strong> y el fuego en el piso <strong className="text-orange-500">{fireFloor}</strong>.
       </p>
@@ -1032,11 +1045,11 @@ function App() {
                     subtractionType={subtractionType}
                   />
                 ) : (
-                  <div className="w-full p-4 bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200 text-center flex items-center justify-center h-56">
+                  <div className="w-full p-4 bg-slate-50/80 backdrop-blur-sm rounded-2xl shadow-lg border-white/30 text-center flex items-center justify-center h-56">
                       <p className="text-slate-600 font-semibold text-lg animate-pulse">Coloca a Bombi y al fuego en el edificio para ver la resta.</p>
                   </div>
                 )}
-                <div className="p-4 bg-white/60 backdrop-blur-sm rounded-2xl shadow-lg flex items-center justify-center gap-8 min-h-[96px] w-full">
+                <div className="p-4 bg-slate-50/80 backdrop-blur-sm rounded-2xl shadow-lg border-white/30 flex items-center justify-center gap-8 min-h-[96px] w-full">
                     {(displayFireFloor === null || displayBombiFloor === null) && (
                          <p className="font-semibold text-slate-700">Tus piezas:</p>
                     )}
