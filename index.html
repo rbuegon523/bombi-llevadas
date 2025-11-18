@@ -8,7 +8,7 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>¡Bombi al Rescate!</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- 1. Añadimos el "traductor" Babel Standalone -->
@@ -25,49 +25,52 @@
 <style>
   html, body {
     min-height: 100vh;
+    overscroll-behavior: none; /* Previene el rebote en mac/ios */
+    touch-action: none; /* Deshabilita gestos del navegador para mejorar el juego */
   }
   body {
     background-color: #d0e8f8;
+    user-select: none; /* Previene selección de texto */
+    -webkit-user-select: none;
   }
 
   @keyframes bob {
-    0%, 100% {
-      transform: translateY(-4%);
-      animation-timing-function: ease-in-out;
-    }
-    50% {
-      transform: translateY(0);
-      animation-timing-function: ease-in-out;
-    }
+    0%, 100% { transform: translateY(-4%); }
+    50% { transform: translateY(0); }
   }
   .animate-bob {
-    animation: bob 2.5s infinite;
+    animation: bob 2.5s infinite ease-in-out;
   }
+
+  @keyframes pulse-select {
+    0%, 100% { transform: scale(1); filter: brightness(1); }
+    50% { transform: scale(1.15); filter: brightness(1.1); }
+  }
+  .animate-select-pulse {
+    animation: pulse-select 0.8s infinite ease-in-out;
+    z-index: 50 !important;
+  }
+
+  @keyframes pop-in {
+    0% { transform: scale(0); opacity: 0; }
+    80% { transform: scale(1.2); opacity: 1; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+  .animate-pop-in {
+    animation: pop-in 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+  }
+
   @keyframes flicker {
-    0%, 100% {
-      transform: scale(1, 1) rotate(1deg);
-      opacity: 1;
-    }
-    20% {
-        transform: scale(1.1, 0.9) rotate(-2deg) translateY(-5%);
-        opacity: 0.9;
-    }
-    40% {
-        transform: scale(0.95, 1.05) rotate(2deg) translateY(0%);
-        opacity: 1;
-    }
-    60% {
-        transform: scale(1.05, 0.95) rotate(1deg) translateY(-2%);
-        opacity: 0.85;
-    }
-    80% {
-        transform: scale(1, 1) rotate(-1deg) translateY(0);
-        opacity: 1;
-    }
+    0%, 100% { transform: scale(1, 1) rotate(1deg); opacity: 1; }
+    20% { transform: scale(1.1, 0.9) rotate(-2deg) translateY(-5%); opacity: 0.9; }
+    40% { transform: scale(0.95, 1.05) rotate(2deg) translateY(0%); opacity: 1; }
+    60% { transform: scale(1.05, 0.95) rotate(1deg) translateY(-2%); opacity: 0.85; }
+    80% { transform: scale(1, 1) rotate(-1deg) translateY(0); opacity: 1; }
   }
   .animate-flicker {
     animation: flicker 0.9s infinite linear;
   }
+  
   @keyframes shake {
     10%, 90% { transform: translate3d(-1px, 0, 0); }
     20%, 80% { transform: translate3d(2px, 0, 0); }
@@ -141,6 +144,42 @@
   .animate-drop {
     animation: drop 0.4s ease-out forwards;
   }
+  
+  /* Estilos para el camino iluminado */
+  .path-highlight {
+    background-color: rgba(255, 235, 59, 0.7) !important; /* Amarillo más intenso */
+    box-shadow: inset 0 0 20px rgba(255, 193, 7, 0.8);
+    border-color: #fbbf24 !important;
+  }
+  
+  .count-bubble {
+    position: absolute;
+    right: -20px; 
+    top: 50%;
+    transform: translateY(-50%);
+    background: #ef4444; /* Red-500 */
+    color: white;
+    font-weight: 800;
+    border-radius: 50%;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+    z-index: 100; /* Ensure it's on top */
+    font-size: 1.25rem;
+    border: 3px solid white;
+  }
+  
+  @media (min-width: 640px) {
+    .count-bubble {
+       right: -45px;
+       width: 48px;
+       height: 48px;
+       font-size: 1.5rem;
+    }
+  }
 </style>
 <link rel="stylesheet" href="/index.css">
 </head>
@@ -160,63 +199,57 @@ var ItemType;
 })(ItemType || (ItemType = {}));
 
 // components/icons/FireIcon.tsx
-const FIRE_IMAGE_BASE64 = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iI2Y5NzMwOCIgc3Ryb2tlPSIjZWY0NDQ0IiBzdHJva2Utd2lkdGg9IjEuNSI+CiAgPHBhdGggc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIiBkPSJNMTIuODg0IDMuMTY5Yy4zMDMtLjI4OC41MTItLjY3NS41MTItMS4xMTlDMTMuMzk2Ljc1OCAxMi42MzcuMDAyIDEyLjAwMi4wMDJjLS4zMiAwLS42MjIuMTE4LS44NTcuMzMzYy0zLjY2MyAzLjQ5My00LjIxNCA5LjQ0NS0xLjI0IDEzLjQ5MWMuMTU0LjIxLjM1LjQuNDA2LjU1My4wNzIuMDY5LjE1LjEzMy4yMzIuMTg5LjMxLjIxOC42ODUuMjEgMS4wMDItLjAwMmMzLjAxOS0yLjAxIDQuMTk2LTcuMjI5IDEuNDg3LTEwLjQwN3oiIC8+CiAgPHBhdGggc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIiBkPSJNMTcuMzE0IDcuNTE4Yy0uODIyLTEuMDA1LTEuODUyLTEuODMtMi45MjYtMi40MjJjLTEuNjA5LS44ODYtMy4wMTUtMS4xMTgtNC4yNjYtLjc0MmMtMS4wMTcuMzA4LTEuODgzLjk1Ny0yLjQxMiAxLjc2M2MtMy4xNDcgNC43OTEtLjc1MyAxMS4wNDIgMy42NTIgMTMuNzljLjg1Ni41MzQgMS43ODcuODMgMi43NTMuODNjMS4zODQtLjAwMyAyLjc0OC0uNjAzIDMuNzUtMS42MTVjNC45MjgtNC45NzkgMy4yNjQtMTIuOTA2LTEuNTUxLTE1LjYwN3oiIC8+Cjwvc3ZnPgo=';
+// Updated to inline SVG to ensure reliability
 const FireIcon = ({ className }) => (
-    <img 
-        src={FIRE_IMAGE_BASE64} 
-        className={className} 
-        alt="Fuego" 
-        style={{ objectFit: 'contain' }}
-    />
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#f97308" stroke="#ef4444" strokeWidth="1.5" className={className} style={{filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.2))'}}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12.884 3.169c.303-.288.512-.675.512-1.119C13.396.758 12.637.002 12.002.002c-.32 0-.622.118-.857.333c-3.663 3.493-4.214 9.445-1.24 13.491c.154.21.35.4.406.553.072.069.15.133.232.189.31.218.685.21 1.002-.002c3.019-2.01 4.196-7.229 1.487-10.407z" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M17.314 7.518c-.822-1.005-1.852-1.83-2.926-2.422c-1.609-.886-3.015-1.118-4.266-.742c-1.017.308-1.883.957-2.412 1.763c-3.147 4.791-.753 11.042 3.652 13.79c.856.534 1.787.83 2.753.83c1.384-.003 2.748-.603 3.75-1.615c4.928-4.979 3.264-12.906-1.551-15.607z" />
+    </svg>
 );
 
 
 // components/icons/FirefighterIcon.tsx
+// Completely rewritten as inline SVG to guarantee visibility and correct colors
 const FirefighterIcon = ({ className }) => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    viewBox="0 0 80 80"
-    className={className}
-    aria-label="Bombero Bombi"
-  >
-    <g stroke="#231f20" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      {/* Water Stream */}
-      <path fill="#65cfff" d="M37.26 40.7C22.68 33.6 8.8 28.14-2.78 24.3c-1.3-.43-.73-2.3 1.15-2.22 10.3.48 20.6.96 30.9 1.45 2.19.1 3.58 2.37 2.69 4.38-3.08 6.94-6.17 13.88-9.25 20.82-.76 1.71.72 3.51 2.6 3.23l.13-.05" />
-      <path fill="none" stroke="#231f20" d="M5.37 23.32s-1.89-2.9-3.79-3.2c-1.9-.31-3.79.62-4.74 2.33s-1.04 3.71.85 4.64 4.45.4 5.68-1.3" />
-      <path fill="none" stroke="#231f20" d="M11.95 19.95s-2.83-2.12-4.58-1.2-2.42 3.32-1.48 5.05.9 2.4 3.36 1.48 4.58-2.12 2.7-5.33" />
-      <path fill="none" stroke="#231f20" d="M9.2 16.27s-1.48-3.32-3.77-3.32-3.77 1.48-3.36 3.77 1.88 3.77 4.17 3.36 2.96-1.48 2.96-3.81" />
-      
-      {/* Body and Clothes */}
-      <path fill="#d93333" d="M61.2,46.1v25.2c0,2.1-3.2,3.8-3.2,3.8H42.5s-3.2-1.7-3.2-3.8V46.1H61.2z" />
-      <path fill="#231f20" d="M39.3,80.1h21.9v4.9H39.3V80.1z" />
-      <path fill="#d93333" d="M40.3 43.1h20v14.4h-20z" />
-      <path fill="#e85b5b" d="M50.8,43.1l-3,6.6h-1.5l4-8.7h1l4,8.7h-1.5L50.8,43.1z" />
-      <path fill="#231f20" d="M39.3,64.1h21.9v5.4H39.3V64.1z" />
-      <rect x="48.8" y="65.3" width="2.7" height="2.7" fill="#cccccc" stroke="none" />
-      <rect x="48.8" y="69.7" width="2.7" height="2.7" fill="#cccccc" stroke="none" />
-      
-      {/* Head and Helmet */}
-      <path fill="#fddab9" d="M49.8,30.1h12c2.1,0,2.1,9.4-3.2,9.4h-6.3C47.2,39.5,47.7,30.1,49.8,30.1z" />
-      <path fill="#6a4f4b" d="M49.8 30.1c-1-1.5 0-3 2-3h6c2 0 3 1.5 2 3H49.8z"/>
-      <circle cx="53.8" cy="35.5" r=".7" fill="#231f20" stroke="none" />
-      <circle cx="59.8" cy="35.5" r=".7" fill="#231f20" stroke="none" />
-      <path fill="none" d="M54.8,37.3c1,1,3,1,4,0" />
-      <path fill="#fecb00" d="M46.8,24.1c0-3.8,3.2-7,7.5-7s7.5,3.2,7.5,7v6.5h-15V24.1z" />
-      <path fill="#fecb00" d="M44.3,30.6h20v2.2h-20z" />
-      <path fill="#fecb00" d="M46.8,24.1c-2.1,1.1-3.2,4.3-1.1,6.5h-1.1c-2.1-3.2,0-7.5,3.2-8.6L46.8,24.1z" />
-      <path fill="#fecb00" d="M64.3,24.1c2.1,1.1,3.2,4.3,1.1,6.5h1.1c2.1-3.2,0-7.5-3.2-8.6L64.3,24.1z" />
-      <path fill="#fecb00" d="M53.8,17.1c-2.1,0-3.2,3.2-1.1,4.9h-1.1c-2.1-2.1-1.1-5.9,2.1-5.9L53.8,17.1z" />
-      <path fill="#fecb00" d="M57.8,17.1c2.1,0,3.2,3.2,1.1,4.9h1.1c2.1-2.1,1.1-5.9-2.1-5.9L57.8,17.1z" />
-      <circle cx="55.8" cy="24.1" r="2.7" fill="#fff" />
-      <text x="55.8" y="25.9" textAnchor="middle" fontSize="3.5" fill="#231f20" fontFamily="sans-serif" fontWeight="bold">B</text>
-      
-      {/* Hose and Hands */}
-      <path fill="#b0b0b0" d="M61.2,46.1c-4.3-4.3-10.8-10.8-10.8-10.8L36.3,49.4c0,0,6.5,6.5,10.8,10.8S61.2,46.1,61.2,46.1z" />
-      <path fill="#888888" d="M40.8,40.1c-1.6-1.6-1.1-4.3,1.1-4.3s15.1,15.1,15.1,15.1" />
-      <path fill="#c7c7c7" d="M36.7,41.2c-1.6-1.6-1.1-4.3,1.1-4.3s15.1,15.1,15.1,15.1S38.3,42.8,36.7,41.2z" />
-      <path fill="#fddab9" d="M44.3,46.1c0,0-8.6-8.6-9.7-9.7c-1.1-1.1-1.1-2.7,1.1-2.7s9.7,9.7,9.7,9.7L44.3,46.1z" />
-      <path fill="#fddab9" d="M48.3,51.1c0,0-8.6-8.6-9.7-9.7c-1.1-1.1-1.1-2.7,1.1-2.7s9.7,9.7,9.7,9.7L48.3,51.1z" />
-    </g>
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" className={className} style={{overflow: 'visible'}}>
+    {/* Shadow */}
+    <ellipse cx="50" cy="95" rx="30" ry="5" fill="rgba(0,0,0,0.2)" />
+    
+    {/* Water Spray (Animated) */}
+    <path d="M25 60 Q 5 20 15 10" fill="none" stroke="#38bdf8" strokeWidth="8" strokeLinecap="round" className="animate-pulse" style={{transformOrigin: 'bottom center'}} />
+    <path d="M25 60 Q 0 30 5 15" fill="none" stroke="#7dd3fc" strokeWidth="5" strokeLinecap="round" strokeDasharray="10 5" />
+    <circle cx="5" cy="15" r="3" fill="#e0f2fe" />
+    <circle cx="15" cy="10" r="4" fill="#e0f2fe" />
+
+    {/* Body / Coat */}
+    <path d="M30 50 Q30 45 50 45 T70 50 L75 90 L25 90 Z" fill="#ef4444" stroke="#7f1d1d" strokeWidth="2" />
+    {/* Belt */}
+    <rect x="28" y="75" width="44" height="8" fill="#1e293b" />
+    <rect x="45" y="74" width="10" height="10" fill="#94a3b8" stroke="#1e293b" />
+
+    {/* Head/Face */}
+    <circle cx="50" cy="40" r="14" fill="#fca5a5" />
+    <circle cx="46" cy="38" r="1.5" fill="#0f172a" />
+    <circle cx="54" cy="38" r="1.5" fill="#0f172a" />
+    <path d="M46 45 Q50 48 54 45" fill="none" stroke="#0f172a" strokeWidth="1" />
+
+    {/* Helmet */}
+    <path d="M25 35 Q25 15 50 15 T75 35 L80 40 L20 40 Z" fill="#facc15" stroke="#854d0e" strokeWidth="2" />
+    <rect x="42" y="20" width="16" height="12" rx="2" fill="#ffffff" stroke="#854d0e" />
+    <text x="50" y="29" fontSize="10" textAnchor="middle" fill="#854d0e" fontWeight="bold" fontFamily="sans-serif">B</text>
+
+    {/* Arms holding hose */}
+    <path d="M30 55 Q20 60 25 70" fill="none" stroke="#ef4444" strokeWidth="8" strokeLinecap="round"/>
+    <path d="M70 55 Q80 60 75 70" fill="none" stroke="#ef4444" strokeWidth="8" strokeLinecap="round"/>
+    
+    {/* Hose Nozzle */}
+    <path d="M25 70 L35 60" fill="none" stroke="#64748b" strokeWidth="6" strokeLinecap="round"/>
+    <circle cx="23" cy="72" r="5" fill="#fca5a5" /> {/* Hand */}
+    <circle cx="75" cy="70" r="5" fill="#fca5a5" /> {/* Hand */}
+    
+    {/* Boots */}
+    <path d="M35 90 L35 95 L28 95 L28 90" fill="#0f172a" />
+    <path d="M65 90 L65 95 L72 95 L72 90" fill="#0f172a" />
   </svg>
 );
 
@@ -256,132 +289,275 @@ const MedalIcon = ({ className }) => (
 </svg>
 );
 
-// components/DraggableItem.tsx
-const DraggableItem = ({ type, onClick, justDropped, isTall }) => {
+// components/icons/HeartIcon.tsx
+const HeartIcon = ({ className }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
+    <path fillRule="evenodd" d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" clipRule="evenodd" />
+  </svg>
+);
+
+// components/LivesIndicator.tsx
+const LivesIndicator = ({ lives }) => {
+    return (
+        <div className="bg-white/70 backdrop-blur-sm p-3 rounded-2xl shadow-md flex items-center gap-2" aria-label={`Vidas restantes: ${lives}`}>
+            <span className="font-bold text-slate-700 sr-only">Vidas:</span>
+            <div className="flex">
+                {[...Array(3)].map((_, i) => (
+                    <HeartIcon 
+                        key={i} 
+                        className={`w-8 h-8 transition-all duration-300 ${i < lives ? 'text-red-500 scale-100' : 'text-slate-300 scale-90 opacity-50'}`} 
+                    />
+                ))}
+            </div>
+        </div>
+    );
+};
+
+// components/GameOverScreen.tsx
+const GameOverScreen = ({ score, onRetry, onMenu }) => {
+  return (
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-fade-in-scale-up">
+      <div className="bg-white/95 p-8 rounded-3xl shadow-2xl text-center max-w-md w-full mx-4 border-4 border-red-300">
+        <h2 className="text-3xl sm:text-4xl font-bold text-slate-800 mb-2">¡Juego Terminado!</h2>
+        <p className="text-slate-600 text-lg mb-6">Has conseguido {score} rescates.</p>
+        <div className="flex flex-col sm:flex-row gap-4">
+          <button
+            onClick={onRetry}
+            className="flex-1 bg-blue-500 text-white font-bold py-3 px-6 rounded-xl text-lg hover:bg-blue-600 focus:outline-none focus:ring-4 focus:ring-blue-300 transition-transform transform hover:scale-105"
+          >
+            Volver a Intentar
+          </button>
+          <button
+            onClick={onMenu}
+            className="flex-1 bg-slate-500 text-white font-bold py-3 px-6 rounded-xl text-lg hover:bg-slate-600 focus:outline-none focus:ring-4 focus:ring-slate-300 transition-transform transform hover:scale-105"
+          >
+            Menú Principal
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+
+// components/InteractiveItem.tsx
+const InteractiveItem = ({ type, onClick, justDropped, isTall, isSelected }) => {
   const handleClick = (e) => {
-    e.stopPropagation(); // Prevent triggering floor click
+    e.stopPropagation(); 
+    e.preventDefault(); // Important: prevents starting a browser drag, allowing our touch move logic to take over
     onClick(type);
   };
   
   const isFire = type === ItemType.FIRE;
-  const itemClass = `${isTall ? 'w-8 h-8 sm:w-10 sm:h-10' : 'w-12 h-12 sm:w-14 sm:h-14'} flex items-center justify-center cursor-pointer transition-transform duration-200 hover:scale-110`;
-  const idleAnimationClass = isFire ? 'animate-flicker' : 'animate-bob';
-  const dropAnimationClass = justDropped ? 'animate-drop' : '';
+  const itemClass = `${isTall ? 'w-12 h-12 sm:w-14 sm:h-14' : 'w-20 h-20 sm:w-24 sm:h-24'} flex items-center justify-center cursor-pointer transition-all duration-200`;
+  
+  // Animaciones basadas en estado
+  let animationClass = isFire ? 'animate-flicker' : 'animate-bob';
+  // Important: opacity should not drop when selected, only scale to indicate readiness
+  if (isSelected) animationClass = 'animate-select-pulse z-50'; 
+  if (justDropped) animationClass = 'animate-drop';
 
   return (
     <div
-      onClick={handleClick}
-      className={`${itemClass} ${idleAnimationClass} ${dropAnimationClass}`}
-      aria-label={isFire ? 'Fuego (haz clic para mover)' : 'Bombero Bombi (haz clic para mover)'}
+      onTouchStart={handleClick}
+      onMouseDown={handleClick}
+      className={`${itemClass} ${animationClass}`}
+      aria-label={isFire ? 'Fuego' : 'Bombero Bombi'}
+      style={{ touchAction: 'none' }} 
     >
       {isFire ? (
-        <FireIcon className="w-full h-full" />
+        <FireIcon className="w-full h-full drop-shadow-md" />
       ) : (
-        <FirefighterIcon className="w-full h-full" />
+        <FirefighterIcon className="w-full h-full drop-shadow-2xl" />
       )}
     </div>
   );
 };
 
 // components/Floor.tsx
-const Floor = ({ floorNumber, children, onClick, isFireHere, isBombiHere, heldItem, isTall }) => {
-  const handleClick = (e) => {
-    onClick(floorNumber);
-  };
+const Floor = ({ floorNumber, children, isFireHere, isBombiHere, isTall, stepNumber, isHighlighted }) => {
   
-  const windowBaseClass = "w-20 h-full flex items-center justify-center rounded-lg shadow-inner transition-all duration-200";
-  const windowNormalClass = "bg-sky-200/60";
+  const windowBaseClass = "w-24 h-full flex items-center justify-center rounded-lg shadow-inner transition-all duration-300 relative";
+  const windowNormalClass = "bg-sky-200/60 border-2 border-sky-300/30";
   
-  let windowHoverClass = 'hover:bg-sky-300/80'; // Default hover when not holding anything
-  if (heldItem === ItemType.BOMBI) {
-    windowHoverClass = "hover:bg-green-300/80 hover:ring-4 hover:ring-green-400 hover:ring-dashed hover:scale-105";
-  } else if (heldItem === ItemType.FIRE) {
-    windowHoverClass = "hover:bg-orange-300/80 hover:ring-4 hover:ring-orange-400 hover:ring-dashed hover:scale-105";
-  }
-
-  const windowFireClass = "bg-red-500/80 ring-2 ring-red-600/80";
-  const windowBombiClass = "bg-cyan-400/80 ring-2 ring-cyan-500/80";
-
-  let windowDynamicClass = `${windowNormalClass} ${windowHoverClass}`;
+  let windowDynamicClass = windowNormalClass;
+  
   if (isFireHere) {
-    windowDynamicClass = windowFireClass;
+    windowDynamicClass = "bg-red-500/80 ring-2 ring-red-600/80";
   } else if (isBombiHere) {
-    windowDynamicClass = windowBombiClass;
+    windowDynamicClass = "bg-cyan-400/80 ring-2 ring-cyan-500/80";
+  } else if (isHighlighted) {
+    windowDynamicClass = "path-highlight";
   }
   
-  const floorHeightClass = isTall ? 'h-10 md:h-12' : 'h-16 md:h-20';
+  const floorHeightClass = isTall ? 'h-12 md:h-14' : 'h-20 md:h-24';
 
   return (
     <div
-      onClick={handleClick}
-      className={`${floorHeightClass} flex items-center justify-center ${heldItem ? 'cursor-copy' : ''}`}
+      className={`${floorHeightClass} flex items-center justify-center w-full relative`}
+      data-floor-number={floorNumber}
       aria-label={`Piso ${floorNumber}`}
     >
       <div className={`${windowBaseClass} ${windowDynamicClass}`}>
         {children}
+        {stepNumber > 0 && (
+          <div className="count-bubble animate-pop-in">
+            {stepNumber}
+          </div>
+        )}
       </div>
     </div>
   );
 };
 
 // components/Building.tsx
-const Building = ({ fireFloor, bombiFloor, onItemClick, onFloorClick, heldItem, isCelebrating, problem, lastMove, floorCount }) => {
+const Building = ({ 
+    fireFloor, 
+    bombiFloor, 
+    onItemClick, 
+    onSelectionMove, 
+    selection, 
+    isCelebrating, 
+    problem, 
+    lastMove, 
+    floorCount,
+    hoveredFloor 
+}) => {
   const isTall = floorCount > 10;
   const floors = Array.from({ length: floorCount }, (_, i) => i);
   const [bombiTop, setBombiTop] = useState(null);
+  const containerRef = useRef(null);
 
-  const floorHeight = isTall ? 40 : 64; // Corresponds to h-10 vs h-16
-  const itemHeight = isTall ? 32 : 48;  // Corresponds to h-8 vs h-12
+  const floorHeight = isTall ? 48 : 80; // Approx pixels
+  const itemHeight = isTall ? 40 : 64;
   const verticalOffset = (floorHeight - itemHeight) / 2;
   const topFloorNumber = floorCount - 1;
+
+  // Manejador táctil para el "pathing" (arrastrar el dedo)
+  const handleTouchMove = (e) => {
+    if (!selection) return;
+    const touch = e.touches[0];
+    const element = document.elementFromPoint(touch.clientX, touch.clientY);
+    // Look for the floor container, works even if we are over the InteractiveItem initially
+    const floorDiv = element?.closest('[data-floor-number]');
+    
+    if (floorDiv) {
+      const floorNum = parseInt(floorDiv.getAttribute('data-floor-number'), 10);
+      onSelectionMove(floorNum, false); // false = is not final
+    }
+  };
+
+  const handleTouchEnd = (e) => {
+     if (!selection || hoveredFloor === null) return;
+     onSelectionMove(hoveredFloor, true); // true = commit move
+  };
+
+  // Mouse equivalents for desktop testing
+  const handleMouseMove = (e) => {
+      if (!selection) return;
+      const element = document.elementFromPoint(e.clientX, e.clientY);
+      const floorDiv = element?.closest('[data-floor-number]');
+      if (floorDiv) {
+          const floorNum = parseInt(floorDiv.getAttribute('data-floor-number'), 10);
+          onSelectionMove(floorNum, false);
+      }
+  };
+
+  const handleMouseUp = () => {
+      if (selection && hoveredFloor !== null) {
+          onSelectionMove(hoveredFloor, true);
+      }
+  }
 
   useEffect(() => {
     if (isCelebrating) {
       const startTop = (topFloorNumber - problem.bombi) * floorHeight + verticalOffset;
       setBombiTop(startTop);
-      
       const timer = setTimeout(() => {
         const endTop = (topFloorNumber - problem.fire) * floorHeight + verticalOffset;
         setBombiTop(endTop);
       }, 100);
-
       return () => clearTimeout(timer);
     } else {
       setBombiTop(null);
     }
   }, [isCelebrating, problem, verticalOffset, floorHeight, topFloorNumber]);
 
+  // Helper para saber si un piso es parte del camino
+  const getPathInfo = (floorNum) => {
+      if (!selection || hoveredFloor === null) return { step: 0, isPath: false };
+      
+      const start = selection.floor;
+      const end = hoveredFloor;
+      
+      const min = Math.min(start, end);
+      const max = Math.max(start, end);
+      
+      if (floorNum >= min && floorNum <= max) {
+          const step = Math.abs(floorNum - start);
+          return { step, isPath: true };
+      }
+      return { step: 0, isPath: false };
+  };
+
   return (
-    <div className="relative w-40 sm:w-48 bg-gradient-to-b from-slate-600 to-slate-800 p-2 rounded-lg shadow-2xl border-4 border-slate-900 shadow-inner">
+    <div 
+        ref={containerRef}
+        className="relative w-56 sm:w-64 bg-gradient-to-b from-slate-600 to-slate-800 p-2 rounded-xl shadow-2xl border-4 border-slate-900 shadow-inner select-none touch-none"
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={() => onSelectionMove(null, false)}
+    >
       <div className="flex flex-col-reverse">
-        {floors.map((floorNum) => (
-          <div key={floorNum} className={`relative flex items-center ${isTall ? 'border-b-2' : 'border-b-4'} border-slate-900 last:border-b-0`}>
-             <span className={`absolute left-2 top-1/2 -translate-y-1/2 font-bold text-white bg-black/50 rounded-full flex items-center justify-center ${isTall ? 'text-base w-6 h-6' : 'text-xl w-7 h-7'}`}>
+        {floors.map((floorNum) => {
+            const { step, isPath } = getPathInfo(floorNum);
+            const isOrigin = selection?.floor === floorNum;
+            // Mostramos el número SOLO si es parte del camino y no es el origen (Bombi)
+            // Esto satisface: "burbujas... solo aparecer en planta que se cruza"
+            const showStep = isPath && !isOrigin; 
+            
+            return (
+          <div key={floorNum} className={`relative flex items-center ${isTall ? 'border-b' : 'border-b-2'} border-slate-900/50 last:border-b-0`}>
+             <span className={`absolute left-1 top-1/2 -translate-y-1/2 font-bold text-white bg-black/40 rounded-full flex items-center justify-center ${isTall ? 'text-sm w-5 h-5' : 'text-lg w-8 h-8'}`}>
                 {floorNum}
              </span>
              <Floor 
                 floorNumber={floorNum} 
-                onClick={onFloorClick}
                 isFireHere={fireFloor === floorNum}
                 isBombiHere={!isCelebrating && bombiFloor === floorNum}
-                heldItem={heldItem}
                 isTall={isTall}
+                stepNumber={showStep ? step : 0}
+                isHighlighted={isPath && !isOrigin}
               >
               <div className={isCelebrating && fireFloor === floorNum ? 'transition-opacity duration-500 delay-1000 opacity-0' : ''}>
-                {fireFloor === floorNum && heldItem !== ItemType.FIRE && (
-                  <DraggableItem type={ItemType.FIRE} onClick={onItemClick} justDropped={lastMove.type === ItemType.FIRE && lastMove.floor === floorNum} isTall={isTall} />
+                {fireFloor === floorNum && (
+                  <InteractiveItem 
+                    type={ItemType.FIRE} 
+                    onClick={onItemClick} 
+                    justDropped={lastMove.type === ItemType.FIRE && lastMove.floor === floorNum} 
+                    isTall={isTall} 
+                    isSelected={selection?.type === ItemType.FIRE}
+                  />
                 )}
               </div>
-              {!isCelebrating && bombiFloor === floorNum && heldItem !== ItemType.BOMBI && (
-                <DraggableItem type={ItemType.BOMBI} onClick={onItemClick} justDropped={lastMove.type === ItemType.BOMBI && lastMove.floor === floorNum} isTall={isTall} />
+              {!isCelebrating && bombiFloor === floorNum && (
+                <InteractiveItem 
+                    type={ItemType.BOMBI} 
+                    onClick={onItemClick} 
+                    justDropped={lastMove.type === ItemType.BOMBI && lastMove.floor === floorNum} 
+                    isTall={isTall} 
+                    isSelected={selection?.type === ItemType.BOMBI}
+                />
               )}
             </Floor>
           </div>
-        ))}
+        )})}
       </div>
       {isCelebrating && bombiTop !== null && problem.bombi !== null && problem.fire !== null && (
         <div 
-          className={`absolute left-1/2 -translate-x-1/2 ${isTall ? 'w-8 h-8 sm:w-10 sm:h-10' : 'w-12 h-12 sm:w-14 sm:h-14'}`} 
+          className={`absolute left-1/2 -translate-x-1/2 z-50 ${isTall ? 'w-12 h-12 sm:w-14 sm:h-14' : 'w-20 h-20 sm:w-24 sm:h-24'}`} 
           style={{ top: `${bombiTop}px`, transition: 'top 1s ease-in-out' }}
         >
           <FirefighterIcon className="w-full h-full animate-bob" />
@@ -427,30 +603,29 @@ const Problem = ({
   const minuend = isCarryMode ? fireFloor : Math.max(fireFloor, bombiFloor);
   const subtrahend = isCarryMode ? bombiFloor : Math.min(fireFloor, bombiFloor);
 
-  const inputBaseClasses = "w-16 h-16 text-center bg-white border-2 rounded-lg focus:ring-4 transition";
+  const inputBaseClasses = "w-16 h-16 text-center bg-white border-2 rounded-lg focus:ring-4 transition text-3xl font-bold";
   const inputNormalClasses = "border-gray-300 focus:ring-blue-300 focus:border-blue-500";
   const inputErrorClasses = "border-red-500 focus:ring-red-300 focus:border-red-500 animate-shake";
 
   return (
     <div className={`w-full max-w-xs p-4 bg-slate-50/80 backdrop-blur-sm rounded-2xl shadow-lg border transition-all duration-300 animate-fade-in-scale-up ${isCorrect === true ? 'border-green-400 ring-4 ring-green-200' : 'border-white/30'}`}>
       <p className="text-center text-gray-700 text-base md:text-lg mb-2">
-        Bombi está en el piso <strong className="text-red-600">{bombiFloor}</strong> y el fuego en el piso <strong className="text-orange-500">{fireFloor}</strong>.
+        Bombi está en el piso <strong className="text-cyan-600">{bombiFloor}</strong> y el fuego en el piso <strong className="text-red-500">{fireFloor}</strong>.
       </p>
       <h2 className="text-center font-bold text-xl md:text-2xl text-gray-800 mb-2">
         {title}
       </h2>
       
-      {isCarryMode && minuend >= 10 && isCorrect !== true && (
+      {isCarryMode && minuend >= 10 && isCorrect === false && (
         <div className="my-2 p-2 bg-yellow-100/70 border-l-4 border-yellow-400 text-yellow-800 rounded-r-lg animate-fade-in-scale-up">
           <p className="font-bold text-sm">¡Pista!</p>
-          <p className="text-sm">Como Bombi no puede bajar del piso {bombiFloor} al {fireFloor % 10}, ¡llévalo hasta el piso {fireFloor} y acuérdate de llevarte una!</p>
+          <p className="text-sm">Del {subtrahend} al {minuend}...</p>
         </div>
       )}
 
-
       {isCorrect === true ? (
-        <div className="text-center py-10 animate-tada">
-            <p className="text-3xl font-bold text-green-600">¡MUY BIEN!</p>
+        <div className="text-center py-6 animate-tada">
+            <p className="text-4xl font-bold text-green-600">¡MUY BIEN!</p>
             <p className="text-green-700 mt-2 text-lg">🎉 ¡Rescate completado! 🎉</p>
         </div>
       ) : (
@@ -461,7 +636,9 @@ const Problem = ({
             <span className="text-red-600">{subtrahend}</span>
             <span className="text-gray-600">=</span>
             <input
-              type="text"
+              type="number" // Changed to number for better mobile keyboard
+              pattern="[0-9]*"
+              inputMode="numeric"
               value={answer}
               onChange={handleInputChange}
               className={`${inputBaseClasses} ${isShaking ? inputErrorClasses : inputNormalClasses}`}
@@ -473,18 +650,12 @@ const Problem = ({
           
           <button
             type="submit"
-            className="w-full bg-blue-500 text-white font-bold py-2 px-4 rounded-lg text-lg hover:bg-blue-600 focus:outline-none focus:ring-4 focus:ring-blue-300 transition-transform transform hover:scale-105 disabled:bg-gray-400 disabled:scale-100 disabled:cursor-not-allowed"
+            className="w-full bg-blue-500 text-white font-bold py-3 px-4 rounded-xl text-xl hover:bg-blue-600 focus:outline-none focus:ring-4 focus:ring-blue-300 transition-transform transform hover:scale-105 disabled:bg-gray-400 disabled:scale-100 disabled:cursor-not-allowed shadow-lg active:scale-95"
             disabled={answer.trim() === ''}
           >
             ¡Comprobar!
           </button>
         </form>
-      )}
-
-      {isCorrect === false && (
-        <div className="text-center mt-2">
-          <p className="text-red-600 mt-1">¡Inténtalo de nuevo!</p>
-        </div>
       )}
     </div>
   );
@@ -551,23 +722,25 @@ const Confetti = React.memo(() => {
 // components/GameModeSelector.tsx
 const GameModeSelector = ({ onSelect }) => {
   return (
-    <div className="fixed inset-0 bg-sky-300/80 backdrop-blur-md z-50 flex items-center justify-center animate-fade-in-scale-up">
-      <div className="bg-white/90 p-8 rounded-3xl shadow-2xl text-center max-w-md w-full mx-4">
+    <div className="fixed inset-0 bg-sky-300/80 backdrop-blur-md z-50 flex items-center justify-center animate-fade-in-scale-up p-4">
+      <div className="bg-white/90 p-6 sm:p-8 rounded-3xl shadow-2xl text-center max-w-4xl w-full">
         <h2 className="text-3xl md:text-4xl font-bold text-slate-800 mb-6">¿Cómo quieres jugar hoy?</h2>
-        <div className="flex flex-col sm:flex-row gap-4">
+        <div className="flex flex-col md:flex-row gap-4 justify-center items-stretch">
           <button
             onClick={() => onSelect('freePlay')}
-            className="flex-1 bg-green-500 text-white font-bold py-4 px-6 rounded-xl text-lg hover:bg-green-600 focus:outline-none focus:ring-4 focus:ring-green-300 transition-transform transform hover:scale-105"
+            className="flex-1 bg-green-500 text-white font-bold py-8 px-6 rounded-2xl text-xl hover:bg-green-600 focus:outline-none focus:ring-4 focus:ring-green-300 transition-transform transform hover:scale-105 shadow-lg flex flex-col items-center justify-center"
           >
-            🎨 Juego Libre
-            <p className="font-normal text-sm mt-1">Coloca las piezas donde quieras</p>
+            <span className="text-4xl mb-2">🎨</span>
+            Juego Libre
+            <p className="font-normal text-base mt-1 opacity-90">Mueve las piezas donde quieras</p>
           </button>
           <button
             onClick={() => onSelect('challenge')}
-            className="flex-1 bg-blue-500 text-white font-bold py-4 px-6 rounded-xl text-lg hover:bg-blue-600 focus:outline-none focus:ring-4 focus:ring-blue-300 transition-transform transform hover:scale-105"
+            className="flex-1 bg-blue-500 text-white font-bold py-8 px-6 rounded-2xl text-xl hover:bg-blue-600 focus:outline-none focus:ring-4 focus:ring-blue-300 transition-transform transform hover:scale-105 shadow-lg flex flex-col items-center justify-center"
           >
-            🏆 Resuelve Retos
-            <p className="font-normal text-sm mt-1">Resuelve las restas que te propongo</p>
+             <span className="text-4xl mb-2">🏆</span>
+            Resuelve Retos
+            <p className="font-normal text-base mt-1 opacity-90">Resuelve mis restas</p>
           </button>
         </div>
       </div>
@@ -578,50 +751,29 @@ const GameModeSelector = ({ onSelect }) => {
 // components/CarryModeSelector.tsx
 const CarryModeSelector = ({ onSelect }) => {
   return (
-    <div className="fixed inset-0 bg-sky-300/80 backdrop-blur-md z-50 flex items-center justify-center animate-fade-in-scale-up">
-      <div className="bg-white/90 p-8 rounded-3xl shadow-2xl text-center max-w-lg w-full mx-4">
+    <div className="fixed inset-0 bg-sky-300/80 backdrop-blur-md z-50 flex items-center justify-center animate-fade-in-scale-up p-4">
+      <div className="bg-white/90 p-6 sm:p-8 rounded-3xl shadow-2xl text-center max-w-4xl w-full">
         <h1 className="text-3xl md:text-4xl font-bold text-slate-800 mb-2">¡Bombi al Rescate!</h1>
-        <p className="text-slate-600 mb-6 text-lg">Elige qué tipo de restas quieres practicar.</p>
-        <div className="flex flex-col sm:flex-row gap-4">
+        <p className="text-slate-600 mb-6 text-lg">Elige tu nivel:</p>
+        <div className="flex flex-col md:flex-row gap-4 justify-center items-stretch">
           <button
             onClick={() => onSelect('simple')}
-            className="flex-1 bg-cyan-500 text-white font-bold py-4 px-6 rounded-xl text-lg hover:bg-cyan-600 focus:outline-none focus:ring-4 focus:ring-cyan-300 transition-transform transform hover:scale-105"
+            className="flex-1 bg-cyan-500 text-white font-bold py-8 px-6 rounded-2xl text-xl hover:bg-cyan-600 focus:outline-none focus:ring-4 focus:ring-cyan-300 transition-transform transform hover:scale-105 shadow-lg flex flex-col items-center justify-center"
           >
-            👍 Restas Simples
-            <p className="font-normal text-sm mt-1">Sin llevarse ninguna</p>
+            <span className="text-4xl mb-2">👍</span>
+            Restas Fáciles
+            <p className="font-normal text-base mt-1 opacity-90">Sin llevadas</p>
           </button>
           <button
             onClick={() => onSelect('carry')}
-            className="flex-1 bg-purple-500 text-white font-bold py-4 px-6 rounded-xl text-lg hover:bg-purple-600 focus:outline-none focus:ring-4 focus:ring-purple-300 transition-transform transform hover:scale-105"
+            className="flex-1 bg-purple-500 text-white font-bold py-8 px-6 rounded-2xl text-xl hover:bg-purple-600 focus:outline-none focus:ring-4 focus:ring-purple-300 transition-transform transform hover:scale-105 shadow-lg flex flex-col items-center justify-center"
           >
-            🧠 Restas con Llevada
-            <p className="font-normal text-sm mt-1">¡Un reto mayor!</p>
+            <span className="text-4xl mb-2">🧠</span>
+            Restas de Mayores
+            <p className="font-normal text-base mt-1 opacity-90">Con llevadas</p>
           </button>
         </div>
       </div>
-    </div>
-  );
-};
-
-// components/CursorFollower.tsx
-const CursorFollower = ({ itemType, position }) => {
-  const style = {
-    position: 'fixed',
-    left: position.x,
-    top: position.y,
-    transform: 'translate(-50%, -50%) scale(1.2)', // Centra en el cursor y lo hace un poco más grande
-    pointerEvents: 'none',
-    zIndex: 1000,
-    transition: 'transform 0.1s ease-out',
-  };
-
-  return (
-    <div style={style}>
-      {itemType === ItemType.FIRE ? (
-        <FireIcon className="w-14 h-14 text-orange-500 drop-shadow-lg" />
-      ) : (
-        <FirefighterIcon className="w-14 h-14 drop-shadow-lg" />
-      )}
     </div>
   );
 };
@@ -631,15 +783,15 @@ const Tutorial = ({ gameMode, onClose }) => {
   const isFreePlay = gameMode === 'freePlay';
 
   const freePlaySteps = [
-    { icon: '🖐️', text: 'Coge a Bombi y al fuego de la zona de piezas.' },
-    { icon: '🏢', text: 'Colócalos en los pisos que quieras del edificio.' },
-    { icon: '✍️', text: '¡Resuelve la resta que has creado!' },
+    { icon: '👆', text: 'Toca a Bombi o al fuego para seleccionarlos.' },
+    { icon: '↕️', text: 'Arrastra tu dedo por las plantas para ver el camino.' },
+    { icon: '📍', text: 'Suelta el dedo en el piso donde quieras colocarlo.' },
   ];
 
   const challengeSteps = [
     { icon: '🤔', text: 'Mira la resta que te proponemos.' },
-    { icon: '⌨️', text: 'Introduce la respuesta correcta en la casilla.' },
-    { icon: '💡', text: '¡Usa a Bombi y el fuego para contar si lo necesitas!' },
+    { icon: '👆', text: 'Toca a Bombi y arrastra el dedo hasta el fuego.' },
+    { icon: '🔢', text: '¡Cuenta las burbujas rojas para saber la respuesta!' },
   ];
 
   const steps = isFreePlay ? freePlaySteps : challengeSteps;
@@ -647,20 +799,20 @@ const Tutorial = ({ gameMode, onClose }) => {
   const buttonText = isFreePlay ? '¡A Jugar!' : '¡Entendido!';
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in-scale-up">
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-fade-in-scale-up">
       <div className="bg-white/95 p-6 sm:p-8 rounded-3xl shadow-2xl text-center max-w-md w-full mx-4 border-4 border-blue-300">
         <h2 className="text-2xl sm:text-3xl font-bold text-slate-800 mb-6">{title}</h2>
         <div className="space-y-4 text-left">
           {steps.map((step, index) => (
-            <div key={index} className="flex items-center gap-4 p-3 bg-slate-100 rounded-lg">
+            <div key={index} className="flex items-center gap-4 p-3 bg-slate-100 rounded-xl border border-slate-200">
               <span className="text-3xl">{step.icon}</span>
-              <p className="text-slate-700 text-base sm:text-lg">{step.text}</p>
+              <p className="text-slate-700 text-lg font-medium">{step.text}</p>
             </div>
           ))}
         </div>
         <button
           onClick={onClose}
-          className="mt-8 w-full bg-blue-500 text-white font-bold py-3 px-6 rounded-xl text-lg hover:bg-blue-600 focus:outline-none focus:ring-4 focus:ring-blue-300 transition-transform transform hover:scale-105"
+          className="mt-8 w-full bg-blue-500 text-white font-bold py-4 px-6 rounded-2xl text-xl hover:bg-blue-600 focus:outline-none focus:ring-4 focus:ring-blue-300 transition-transform transform hover:scale-105 shadow-lg"
         >
           {buttonText}
         </button>
@@ -674,6 +826,7 @@ const Tutorial = ({ gameMode, onClose }) => {
 const MEDAL_THRESHOLDS = [5, 10, 25, 50];
 const TOP_FLOOR_SIMPLE = 9;
 const TOP_FLOOR_CARRY = 19;
+const INITIAL_LIVES = 3;
 
 function App() {
   const [subtractionType, setSubtractionType] = useState(null);
@@ -686,13 +839,18 @@ function App() {
   
   const [answer, setAnswer] = useState('');
   const [isCorrect, setIsCorrect] = useState(null);
-  const [heldItem, setHeldItem] = useState(null);
-  const [cursorPosition, setCursorPosition] = useState({ x: -100, y: -100 });
   
+  // Nueva lógica de selección
+  const [selection, setSelection] = useState(null); // { type, floor }
+  const [hoveredFloor, setHoveredFloor] = useState(null);
+
   const [isCelebrating, setIsCelebrating] = useState(false);
   const [newlyEarnedMedal, setNewlyEarnedMedal] = useState(null);
   const [lastMove, setLastMove] = useState({type: null, floor: null});
 
+  const [lives, setLives] = useState(INITIAL_LIVES);
+  const [sessionScore, setSessionScore] = useState(0);
+  const [isGameOver, setIsGameOver] = useState(false);
 
   const [correctAnswersCount, setCorrectAnswersCount] = useState(() => {
     const savedCount = localStorage.getItem('correctAnswersCount');
@@ -701,25 +859,12 @@ function App() {
 
   const audioCtxRef = useRef(null);
 
-  // Update cursor position
-  useEffect(() => {
-    const handleMouseMove = (e) => {
-      setCursorPosition({ x: e.clientX, y: e.clientY });
-    };
-    if (heldItem) {
-      window.addEventListener('mousemove', handleMouseMove);
-    }
-    return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-    };
-  }, [heldItem]);
-
-  // Clear the last move after animation to prevent re-triggering
+  // Clear the last move animation
   useEffect(() => {
     if (lastMove.type) {
         const timer = setTimeout(() => {
             setLastMove({ type: null, floor: null });
-        }, 500); // Animation is 400ms
+        }, 500);
         return () => clearTimeout(timer);
     }
   }, [lastMove]);
@@ -735,11 +880,10 @@ function App() {
 
     if (subtractionType === 'carry') {
         let newFireFloor, newBombiFloor;
-        
         do {
             newFireFloor = Math.floor(Math.random() * 10) + 10; // 10 to 19
             newBombiFloor = Math.floor(Math.random() * 10);   // 0 to 9
-        } while (newFireFloor % 10 >= newBombiFloor); // Ensure unit digit of fire is less than bombi for a "carry" op
+        } while (newFireFloor % 10 >= newBombiFloor); 
         
         setProblem({ fire: newFireFloor, bombi: newBombiFloor });
         setDisplayFireFloor(newFireFloor);
@@ -747,13 +891,11 @@ function App() {
 
     } else { // 'simple' mode
         let newFireFloor, newBombiFloor;
-        
         do {
           newFireFloor = Math.floor(Math.random() * (TOP_FLOOR_SIMPLE + 1));
           newBombiFloor = Math.floor(Math.random() * (TOP_FLOOR_SIMPLE + 1));
         } while (newBombiFloor === newFireFloor);
         
-        // In simple mode, the larger number is always the minuend
         if (newBombiFloor > newFireFloor) {
           [newBombiFloor, newFireFloor] = [newFireFloor, newBombiFloor];
         }
@@ -768,36 +910,35 @@ function App() {
     if (!audioCtxRef.current) {
       try {
         audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)();
-      } catch (e) {
-        console.error("Web Audio API is not supported in this browser");
-        return;
-      }
+      } catch (e) { return; }
     }
     const audioCtx = audioCtxRef.current;
     if (!audioCtx) return;
-    if (audioCtx.state === 'suspended') {
-      audioCtx.resume();
-    }
+    if (audioCtx.state === 'suspended') audioCtx.resume();
     
     const oscillator = audioCtx.createOscillator();
     const gainNode = audioCtx.createGain();
     oscillator.connect(gainNode);
     gainNode.connect(audioCtx.destination);
   
-    if (type === 'pickup') {
-      gainNode.gain.setValueAtTime(0.08, audioCtx.currentTime);
+    if (type === 'select') {
+      // Sonido suave de "burbuja" al seleccionar
+      gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
       oscillator.type = 'sine';
-      oscillator.frequency.setValueAtTime(440, audioCtx.currentTime);
-      gainNode.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime + 0.1);
+      oscillator.frequency.setValueAtTime(400, audioCtx.currentTime);
+      oscillator.frequency.exponentialRampToValueAtTime(600, audioCtx.currentTime + 0.1);
+      gainNode.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime + 0.15);
       oscillator.start();
-      oscillator.stop(audioCtx.currentTime + 0.1);
-    } else if (type === 'drop') {
-      gainNode.gain.setValueAtTime(0.08, audioCtx.currentTime);
-      oscillator.type = 'sine';
-      oscillator.frequency.setValueAtTime(330, audioCtx.currentTime);
-      gainNode.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime + 0.1);
+      oscillator.stop(audioCtx.currentTime + 0.15);
+    } else if (type === 'move') {
+      // Sonido de movimiento
+      gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+      oscillator.type = 'triangle';
+      oscillator.frequency.setValueAtTime(300, audioCtx.currentTime);
+      oscillator.frequency.linearRampToValueAtTime(200, audioCtx.currentTime + 0.1);
+      gainNode.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime + 0.15);
       oscillator.start();
-      oscillator.stop(audioCtx.currentTime + 0.1);
+      oscillator.stop(audioCtx.currentTime + 0.15);
     } else if (type === 'climb') {
       gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
       oscillator.type = 'square';
@@ -825,71 +966,90 @@ function App() {
       gainNode.gain.exponentialRampToValueAtTime(0.00001, now + 0.5);
       oscillator.start();
       oscillator.stop(now + 0.5);
+    } else if (type === 'wrong') {
+        const now = audioCtx.currentTime;
+        oscillator.type = 'sawtooth';
+        gainNode.gain.setValueAtTime(0.1, now);
+        oscillator.frequency.setValueAtTime(220, now);
+        oscillator.frequency.exponentialRampToValueAtTime(110, now + 0.2);
+        gainNode.gain.exponentialRampToValueAtTime(0.00001, now + 0.2);
+        oscillator.start();
+        oscillator.stop(now + 0.2);
     }
   }, []);
 
   const handleItemClick = (type) => {
-    if (isCelebrating || heldItem) return;
-    playSound('pickup');
-    setHeldItem(type);
+    if (isCelebrating || isGameOver) return;
+    
+    let floor;
+    if (type === ItemType.FIRE) floor = displayFireFloor;
+    else floor = displayBombiFloor;
+
+    if (selection && selection.type === type) {
+        // Deselect if clicking same item
+        setSelection(null);
+        setHoveredFloor(null);
+    } else {
+        playSound('select');
+        setSelection({ type, floor });
+        setHoveredFloor(null); // Reset hover path
+    }
   };
-  
-  const handleFloorClick = (targetFloor) => {
-    if (!heldItem) return;
-    playSound('drop');
-    setLastMove({ type: heldItem, floor: targetFloor });
 
-    if (gameMode === 'challenge') {
-      if (heldItem === ItemType.FIRE) {
-        setDisplayFireFloor(targetFloor);
-      } else if (heldItem === ItemType.BOMBI) {
-        setDisplayBombiFloor(targetFloor);
+  const handleSelectionMove = (targetFloor, isFinal) => {
+      if (!selection || isCelebrating || isGameOver) return;
+
+      setHoveredFloor(targetFloor);
+
+      if (isFinal) {
+        // Commit the move
+        playSound('move');
+        setLastMove({ type: selection.type, floor: targetFloor });
+
+        if (gameMode === 'challenge') {
+            // En modo reto, solo movemos visualmente, el problema no cambia
+            if (selection.type === ItemType.FIRE) setDisplayFireFloor(targetFloor);
+            else setDisplayBombiFloor(targetFloor);
+        } else {
+            // Free Play Mode
+            let newFireFloor = displayFireFloor;
+            let newBombiFloor = displayBombiFloor;
+            
+            if (selection.type === ItemType.FIRE) newFireFloor = targetFloor;
+            else newBombiFloor = targetFloor;
+
+            setDisplayFireFloor(newFireFloor);
+            setDisplayBombiFloor(newBombiFloor);
+
+            // Update logic for freeplay problem gen
+            if (newFireFloor !== null && newBombiFloor !== null && newFireFloor !== newBombiFloor) {
+                const fire = newFireFloor;
+                const bombi = newBombiFloor;
+                
+                if (subtractionType === 'carry' && (fire < 10 || bombi >= 10 || fire % 10 >= bombi)) {
+                    setProblem({ fire: 0, bombi: 0 }); // Invalid state
+                } else {
+                    setProblem({ fire, bombi });
+                }
+                setAnswer('');
+                setIsCorrect(null);
+                setIsCelebrating(false);
+            }
+        }
+        
+        setSelection(null);
+        setHoveredFloor(null);
       }
-      setHeldItem(null);
-      return;
-    }
-
-    // --- Logic for freePlay mode ---
-    let newFireFloor = displayFireFloor;
-    let newBombiFloor = displayBombiFloor;
-
-    if (heldItem === ItemType.FIRE) {
-      newFireFloor = targetFloor;
-    } else if (heldItem === ItemType.BOMBI) {
-      newBombiFloor = targetFloor;
-    }
-    
-    // Always update visual positions
-    setDisplayFireFloor(newFireFloor);
-    setDisplayBombiFloor(newBombiFloor);
-    
-    // Only update the problem if the pieces are moved to DIFFERENT floors.
-    if (newFireFloor !== null && newBombiFloor !== null && newFireFloor !== newBombiFloor) {
-      const fire = newFireFloor;
-      const bombi = newBombiFloor;
-      
-      // For carry mode, fire must be >= 10 and bombi < 10 with carry condition.
-      // If user placement doesn't allow a valid carry problem, we don't create one.
-      if (subtractionType === 'carry' && (fire < 10 || bombi >= 10 || fire % 10 >= bombi)) {
-         // Invalid carry problem, we can just show the pieces without a solvable problem.
-         setProblem({ fire: 0, bombi: 0 }); // Reset problem to avoid confusion
-      } else {
-        setProblem({ fire, bombi });
-      }
-
-      setAnswer('');
-      setIsCorrect(null);
-      setIsCelebrating(false);
-    }
-    
-    setHeldItem(null);
   };
 
   const handleModeSelect = (mode) => {
     setGameMode(mode);
-    setHeldItem(null);
+    setSelection(null);
     setShowTutorial(true);
     if (mode === 'challenge') {
+      setLives(INITIAL_LIVES);
+      setSessionScore(0);
+      setIsGameOver(false);
       generateNewProblem();
     } else {
       const initialProblem = subtractionType === 'carry' ? { fire: 12, bombi: 3 } : { fire: 5, bombi: 2 };
@@ -904,6 +1064,7 @@ function App() {
 
 
   const checkAnswer = () => {
+    if (isGameOver) return;
     const minuend = subtractionType === 'carry' ? problem.fire : Math.max(problem.fire, problem.bombi);
     const subtrahend = subtractionType === 'carry' ? problem.bombi : Math.min(problem.fire, problem.bombi);
     const correctAnswer = minuend - subtrahend;
@@ -915,7 +1076,7 @@ function App() {
       
       if (gameMode === 'challenge') {
         playSound('climb');
-        
+        setSessionScore(prev => prev + 1);
         const newCount = correctAnswersCount + 1;
         if (MEDAL_THRESHOLDS.includes(newCount)) {
           playSound('medal');
@@ -923,12 +1084,10 @@ function App() {
           setTimeout(() => setNewlyEarnedMedal(null), 1500);
         }
         setCorrectAnswersCount(newCount);
-
         setTimeout(() => {
           generateNewProblem();
         }, 2500);
-
-      } else { // In free play, just celebrate.
+      } else {
         playSound('climb');
         setTimeout(() => {
           setIsCelebrating(false);
@@ -936,59 +1095,68 @@ function App() {
       }
     } else {
       setIsCorrect(false);
+      playSound('wrong');
+       if (gameMode === 'challenge') {
+        const newLives = lives - 1;
+        setLives(newLives);
+        if (newLives <= 0) {
+            setTimeout(() => setIsGameOver(true), 500);
+        }
+       }
     }
   };
 
+  const restartChallenge = () => {
+    setIsGameOver(false);
+    setLives(INITIAL_LIVES);
+    setSessionScore(0);
+    generateNewProblem();
+  };
+
   const setAnswerWrapper = (value) => {
-    if (isCorrect !== null) {
-        setIsCorrect(null);
-    }
+    if (isCorrect !== null) setIsCorrect(null);
     setAnswer(value);
   }
   
   const getFooterText = () => {
-    if (heldItem) {
-      return 'Haz clic en un piso del edificio para colocarlo.';
+    if (isGameOver) return '¡El reto ha terminado!';
+    if (selection) {
+      return 'Arrastra tu dedo hasta el piso donde quieras ir.';
     }
     if (gameMode === 'freePlay') {
         if (displayFireFloor === null || displayBombiFloor === null) {
-            return 'Haz clic en una pieza para cogerla.';
+            return 'Toca una pieza para cogerla.';
         }
         return '¡Mueve a Bombi y al fuego para crear nuevas restas!';
     }
-    return 'Haz clic en el fuego o en Bombi si necesitas ayuda para contar.';
+    return 'Usa a Bombi para contar la distancia.';
   };
   
-  if (!subtractionType) {
-    return <CarryModeSelector onSelect={setSubtractionType} />;
-  }
-
-  if (gameMode === 'selecting') {
-    return <GameModeSelector onSelect={handleModeSelect} />;
-  }
+  if (!subtractionType) return <CarryModeSelector onSelect={setSubtractionType} />;
+  if (gameMode === 'selecting') return <GameModeSelector onSelect={handleModeSelect} />;
   
   const isCarryMode = subtractionType === 'carry';
   const isTallBuilding = isCarryMode;
 
   return (
-    <div className="min-h-screen w-full flex flex-col items-center justify-center p-4 font-sans bg-transparent overflow-hidden relative">
+    <div className="min-h-screen w-full flex flex-col items-center justify-center p-2 sm:p-4 font-sans bg-transparent overflow-hidden relative">
+      {isGameOver && <GameOverScreen score={sessionScore} onRetry={restartChallenge} onMenu={() => { setGameMode('selecting'); setSubtractionType(null); setIsGameOver(false); }} />}
       {showTutorial && <Tutorial gameMode={gameMode} onClose={() => setShowTutorial(false)} />}
+      
       <button
         onClick={() => { setGameMode('selecting'); setSubtractionType(null); }}
-        className="absolute top-4 left-4 z-30 bg-white/80 backdrop-blur-sm pl-3 pr-4 py-2 rounded-full shadow-md hover:bg-white transition-transform hover:scale-105 flex items-center gap-2 text-slate-700 font-semibold"
+        className="absolute top-2 left-2 z-30 bg-white/80 backdrop-blur-sm p-2 rounded-full shadow-md hover:bg-white transition-transform hover:scale-105 flex items-center gap-2 text-slate-700 font-semibold"
         aria-label="Volver al menú principal"
       >
-        <HomeIcon className="w-5 h-5" />
-        <span>Menú</span>
+        <HomeIcon className="w-6 h-6" />
       </button>
 
-      {heldItem && <CursorFollower itemType={heldItem} position={cursorPosition} />}
       {isCelebrating && <Confetti />}
       
       {isCelebrating && (
-        <div className="absolute top-24 md:top-32 left-1/2 -translate-x-1/2 z-20 text-center pointer-events-none">
+        <div className="absolute top-20 left-1/2 -translate-x-1/2 z-40 text-center pointer-events-none w-full px-4">
           <h2 
-            className="text-4xl md:text-6xl font-bold text-white bg-gradient-to-r from-green-400 via-cyan-400 to-blue-500 p-4 rounded-2xl shadow-2xl animate-fade-in-out-up"
+            className="text-5xl sm:text-6xl font-bold text-white bg-gradient-to-r from-green-400 via-cyan-400 to-blue-500 p-4 rounded-3xl shadow-2xl animate-fade-in-out-up border-4 border-white"
             aria-live="polite"
           >
             ¡Bien Hecho!
@@ -996,27 +1164,37 @@ function App() {
         </div>
       )}
 
-      <header className="text-center mb-4 z-10">
-        <h1 className="text-3xl md:text-5xl font-bold text-slate-800 drop-shadow-lg">
+      <header className="text-center mb-2 z-10 pt-8 sm:pt-0">
+        <h1 className="text-2xl sm:text-4xl font-bold text-slate-800 drop-shadow-lg">
           ¡Bombi al Rescate!
         </h1>
-        <p className="text-slate-700 font-semibold text-lg">{isCarryMode ? 'Restas con Llevada' : 'Restas Simples'}</p>
       </header>
-      <main className="flex flex-col items-center justify-center gap-6 w-full z-10">
-        {gameMode === 'challenge' && <Rewards correctAnswersCount={correctAnswersCount} newlyEarnedMedal={newlyEarnedMedal} />}
-        <div className="flex flex-col lg:flex-row items-center lg:items-start justify-center gap-4 lg:gap-8 w-full">
-          <Building 
-            fireFloor={displayFireFloor} 
-            bombiFloor={displayBombiFloor} 
-            onItemClick={handleItemClick}
-            onFloorClick={handleFloorClick}
-            heldItem={heldItem}
-            isCelebrating={isCelebrating}
-            problem={problem}
-            lastMove={lastMove}
-            floorCount={isCarryMode ? TOP_FLOOR_CARRY + 1 : TOP_FLOOR_SIMPLE + 1}
-          />
-          <div className="flex flex-col items-center gap-4 w-full max-w-xs">
+      
+      <main className="flex flex-col items-center justify-center gap-4 w-full z-10 flex-grow">
+        <div className="flex justify-center items-center gap-4 flex-wrap min-h-[60px]">
+          {gameMode === 'challenge' && <Rewards correctAnswersCount={correctAnswersCount} newlyEarnedMedal={newlyEarnedMedal} />}
+          {gameMode === 'challenge' && <LivesIndicator lives={lives} />}
+        </div>
+        
+        <div className="flex flex-col lg:flex-row items-center lg:items-start justify-center gap-4 lg:gap-12 w-full max-w-5xl">
+          {/* Building Column */}
+          <div className="flex-shrink-0">
+             <Building 
+                fireFloor={displayFireFloor} 
+                bombiFloor={displayBombiFloor} 
+                onItemClick={handleItemClick}
+                onSelectionMove={handleSelectionMove}
+                selection={selection}
+                hoveredFloor={hoveredFloor}
+                isCelebrating={isCelebrating}
+                problem={problem}
+                lastMove={lastMove}
+                floorCount={isCarryMode ? TOP_FLOOR_CARRY + 1 : TOP_FLOOR_SIMPLE + 1}
+              />
+          </div>
+
+          {/* Controls Column */}
+          <div className="flex flex-col items-center gap-4 w-full max-w-sm">
             {gameMode === 'challenge' && (
               <Problem 
                 key={`${problem.fire}-${problem.bombi}`}
@@ -1041,36 +1219,34 @@ function App() {
                     setAnswer={setAnswerWrapper}
                     checkAnswer={checkAnswer}
                     isCorrect={isCorrect}
-                    title="¡Resuelve la resta que has creado!"
+                    title="¡Resuelve la resta!"
                     subtractionType={subtractionType}
                   />
                 ) : (
-                  <div className="w-full p-4 bg-slate-50/80 backdrop-blur-sm rounded-2xl shadow-lg border-white/30 text-center flex items-center justify-center h-56">
-                      <p className="text-slate-600 font-semibold text-lg animate-pulse">Coloca a Bombi y al fuego en el edificio para ver la resta.</p>
+                  <div className="w-full p-6 bg-slate-50/80 backdrop-blur-sm rounded-3xl shadow-lg border-white/30 text-center flex items-center justify-center h-40">
+                      <p className="text-slate-600 font-semibold text-xl animate-pulse">Coloca a Bombi y al fuego.</p>
                   </div>
                 )}
-                <div className="p-4 bg-slate-50/80 backdrop-blur-sm rounded-2xl shadow-lg border-white/30 flex items-center justify-center gap-8 min-h-[96px] w-full">
-                    {(displayFireFloor === null || displayBombiFloor === null) && (
-                         <p className="font-semibold text-slate-700">Tus piezas:</p>
+                
+                <div className="p-4 bg-white/60 backdrop-blur-sm rounded-3xl shadow-lg border border-white flex flex-col items-center justify-center gap-2 w-full">
+                    {(displayBombiFloor === null || displayFireFloor === null) && (
+                         <p className="font-bold text-slate-700 mb-2">Tus piezas:</p>
                     )}
-                    <div className="flex gap-4">
-                        {displayBombiFloor === null && heldItem !== ItemType.BOMBI && (
-                            <DraggableItem type={ItemType.BOMBI} onClick={handleItemClick} isTall={isTallBuilding} />
+                    <div className="flex gap-8">
+                        {displayBombiFloor === null && selection?.type !== ItemType.BOMBI && (
+                            <InteractiveItem type={ItemType.BOMBI} onClick={handleItemClick} isTall={isTallBuilding} isSelected={selection?.type === ItemType.BOMBI} />
                         )}
-                        {displayFireFloor === null && heldItem !== ItemType.FIRE && (
-                            <DraggableItem type={ItemType.FIRE} onClick={handleItemClick} isTall={isTallBuilding} />
+                        {displayFireFloor === null && selection?.type !== ItemType.FIRE && (
+                            <InteractiveItem type={ItemType.FIRE} onClick={handleItemClick} isTall={isTallBuilding} isSelected={selection?.type === ItemType.FIRE} />
                         )}
                     </div>
-                    {displayBombiFloor !== null && displayFireFloor !== null && (
-                        <p className="text-slate-700">¡Puedes moverlos a otros pisos!</p>
-                    )}
                 </div>
               </>
             )}
           </div>
         </div>
       </main>
-      <footer className="mt-4 text-center text-slate-800 font-semibold drop-shadow-md z-10">
+      <footer className="mt-2 pb-2 text-center text-slate-700 font-semibold drop-shadow-md z-10 text-sm sm:text-base">
         <p>{getFooterText()}</p>
       </footer>
     </div>
