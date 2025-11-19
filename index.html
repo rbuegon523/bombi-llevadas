@@ -36,6 +36,10 @@
         .digit-input {
             caret-color: transparent;
         }
+        /* Prevent pull-to-refresh on mobile */
+        body {
+            overscroll-behavior-y: contain;
+        }
     </style>
 <script type="importmap">
 {
@@ -52,6 +56,53 @@
     <div id="app" class="h-full w-full"></div>
 
     <script>
+        // AUDIO SYSTEM
+        const AudioController = {
+            ctx: null,
+            init: function() {
+                if (!this.ctx) {
+                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+            },
+            playTone: function(freq, type, duration, time = 0, vol = 0.1) {
+                if (!this.ctx) this.init();
+                if (this.ctx.state === 'suspended') this.ctx.resume();
+                
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                
+                osc.type = type;
+                osc.frequency.setValueAtTime(freq, this.ctx.currentTime + time);
+                
+                gain.gain.setValueAtTime(vol, this.ctx.currentTime + time);
+                gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + time + duration);
+                
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                
+                osc.start(this.ctx.currentTime + time);
+                osc.stop(this.ctx.currentTime + time + duration);
+            },
+            playVictory: function() {
+                // Happy arpeggio
+                this.playTone(523.25, 'triangle', 0.2, 0, 0.2); // C5
+                this.playTone(659.25, 'triangle', 0.2, 0.15, 0.2); // E5
+                this.playTone(783.99, 'triangle', 0.2, 0.3, 0.2); // G5
+                this.playTone(1046.50, 'sine', 0.6, 0.45, 0.3); // C6
+            },
+            playStep: function() {
+                // Short pop
+                this.playTone(400, 'sine', 0.1, 0, 0.1);
+            },
+            playError: function() {
+                // Low buzz
+                this.playTone(150, 'sawtooth', 0.3, 0, 0.1);
+            },
+            playClick: function() {
+                this.playTone(800, 'sine', 0.05, 0, 0.05);
+            }
+        };
+
         // ICONS (SVG Strings)
         const Icons = {
             Home: `<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>`,
@@ -60,7 +111,8 @@
             Cloud: `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="0" class="text-white/60"><path d="M17.5 19c0-1.7-1.3-3-3-3h-11a4 4 0 1 1 .9-7.9 4 4 0 0 1 7.5-2.1 5 5 0 0 1 9.2 3.8 3 3 0 0 1 2.4 5.2"/></svg>`,
             ArrowUp: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>`,
             Delete: `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 4H8l-7 8 7 8h13a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z"/><line x1="18" y1="9" x2="12" y2="15"/><line x1="12" y1="9" x2="18" y2="15"/></svg>`,
-            Check: `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`
+            Check: `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`,
+            Trash: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>`
         };
 
         // GAME STATE
@@ -71,12 +123,12 @@
             minuend: '',
             subtrahend: '',
             result: '',
-            // carries removed
             activeInput: null, // 'minuend', 'subtrahend', 'result'
             bombiFloor: 0,
             steps: 0,
             message: '',
-            victory: false
+            victory: false,
+            isDragging: false
         };
 
         // UTILS
@@ -90,19 +142,9 @@
             const maxVal = 20; 
             
             if (State.gameMode === 'SIN_LLEVADAS') {
-                 // 50% chance single digits, 50% chance teens without carry
-                 if (Math.random() > 0.5) {
-                    m = randomInt(2, 9);
-                    s = randomInt(0, m - 1);
-                 } else {
-                    let mTen = randomInt(1, 1); // 10-19
-                    let mUnit = randomInt(1, 9);
-                    let sTen = randomInt(0, mTen);
-                    let sUnit = randomInt(0, mUnit);
-                    m = mTen * 10 + mUnit;
-                    s = sTen * 10 + sUnit;
-                    if (m <= s) { m = 9; s = 4; } // Fallback
-                 }
+                 // STRICT: Fire never above floor 9
+                 m = randomInt(1, 9);
+                 s = randomInt(0, m - 1);
             } else {
                  // With carry
                  // Limit minuend to maxVal (20) for better visualization on single screen
@@ -120,6 +162,7 @@
         }
 
         function initGame(gMode, iMode) {
+            AudioController.playClick();
             State.gameMode = gMode;
             State.inputMode = iMode;
             State.screen = 'GAME';
@@ -145,13 +188,20 @@
 
         // ACTIONS
         function handleKey(k) {
+            AudioController.playClick();
             if (State.victory) return;
             
+            // Determine max length
+            const isSinLlevadas = State.gameMode === 'SIN_LLEVADAS';
+            const maxMinuend = isSinLlevadas ? 1 : 2;
+            const maxSubtrahend = isSinLlevadas ? 1 : 2;
+            const maxResult = 3; // Keep result generous
+
             const addChar = (curr, max) => curr.length < max ? curr + k : curr;
             
-            if (State.activeInput === 'minuend') State.minuend = addChar(State.minuend, 2);
-            else if (State.activeInput === 'subtrahend') State.subtrahend = addChar(State.subtrahend, 2);
-            else if (State.activeInput === 'result') State.result = addChar(State.result, 3);
+            if (State.activeInput === 'minuend') State.minuend = addChar(State.minuend, maxMinuend);
+            else if (State.activeInput === 'subtrahend') State.subtrahend = addChar(State.subtrahend, maxSubtrahend);
+            else if (State.activeInput === 'result') State.result = addChar(State.result, maxResult);
 
             // Update bombi floor dynamically in Create mode
             if (State.inputMode === 'CREAR' && State.activeInput === 'subtrahend') {
@@ -163,6 +213,7 @@
         }
 
         function handleDelete() {
+            AudioController.playClick();
             if (State.victory) return;
             const del = (s) => s.slice(0, -1);
 
@@ -177,8 +228,21 @@
 
             render();
         }
+        
+        function handleClearAll() {
+            AudioController.playClick();
+            if (State.inputMode !== 'CREAR') return;
+            State.minuend = '';
+            State.subtrahend = '';
+            State.result = '';
+            State.bombiFloor = 0;
+            State.activeInput = 'minuend';
+            State.steps = 0;
+            render();
+        }
 
         function handleCheck() {
+            AudioController.playClick();
             // Create Mode: Transition to Solve Mode
             if (State.inputMode === 'CREAR' && !State.result && State.activeInput !== 'result') {
                 const m = parseInt(State.minuend);
@@ -186,15 +250,28 @@
                 
                 if (isNaN(m) || isNaN(s)) {
                     showMessage("¡Introduce los números primero!");
+                    AudioController.playError();
                     return;
                 }
                 if (m <= s) {
                     showMessage("El número de arriba debe ser mayor");
+                    AudioController.playError();
                     return;
                 }
-                if (m > 25) {
-                    showMessage("¡Usa números más pequeños!");
-                    return;
+                
+                // Validate limits based on mode
+                if (State.gameMode === 'SIN_LLEVADAS') {
+                    if (m > 9) {
+                        showMessage("¡Máximo planta 9!");
+                        AudioController.playError();
+                        return;
+                    }
+                } else {
+                    if (m > 25) {
+                        showMessage("¡Usa números más pequeños!");
+                        AudioController.playError();
+                        return;
+                    }
                 }
 
                 // Lock creation and start solving
@@ -218,24 +295,31 @@
                 State.bombiFloor = m; // Move to top
                 State.message = "¡Fuego Apagado!";
                 State.activeInput = null;
+                AudioController.playVictory();
                 render();
                 startConfetti();
             } else {
                 showMessage("¡Inténtalo de nuevo!");
+                AudioController.playError();
             }
         }
 
-        function moveBombi() {
+        function moveBombi(floors = 1) {
             const m = parseInt(State.minuend);
             if (!isNaN(m) && State.bombiFloor < m) {
-                State.bombiFloor++;
-                State.steps++;
-                
-                // Check if we are in 'Con Llevadas' mode and Bombi reached the fire
-                if (State.gameMode === 'CON_LLEVADAS' && State.bombiFloor === m) {
-                    showMessage("¡Recuerda! ¡Te llevas 1!");
-                } else {
-                    render();
+                const target = Math.min(m, State.bombiFloor + floors);
+                const moved = target - State.bombiFloor;
+                if (moved > 0) {
+                    State.bombiFloor = target;
+                    State.steps += moved;
+                    AudioController.playStep();
+                    
+                    // Check if we are in 'Con Llevadas' mode and Bombi reached the fire
+                    if (State.gameMode === 'CON_LLEVADAS' && State.bombiFloor === m) {
+                        showMessage("¡Recuerda! ¡Te llevas 1!");
+                    } else {
+                        render();
+                    }
                 }
             }
         }
@@ -250,6 +334,7 @@
         }
 
         function setActive(field) {
+            AudioController.playClick();
             if (!State.victory) {
                 // In solve mode, prevents editing the problem numbers
                 if (State.inputMode === 'RESOLVER' && (field === 'minuend' || field === 'subtrahend')) return;
@@ -258,6 +343,68 @@
 
                 State.activeInput = field;
                 render();
+            }
+        }
+
+        // DRAG LOGIC
+        let dragStartY = 0;
+        let dragStartFloor = 0;
+        let dragCurrentY = 0;
+        const FLOOR_HEIGHT_PX = 40; // Approximate height of a floor rendered in pixels
+
+        function startDrag(e) {
+            if (State.victory) return;
+            const evt = e.touches ? e.touches[0] : e;
+            dragStartY = evt.clientY;
+            dragCurrentY = evt.clientY;
+            dragStartFloor = State.bombiFloor;
+            State.isDragging = true;
+            
+            // Attach global listeners
+            document.addEventListener('mousemove', handleDragMove);
+            document.addEventListener('mouseup', handleDragEnd);
+            document.addEventListener('touchmove', handleDragMove, { passive: false });
+            document.addEventListener('touchend', handleDragEnd);
+        }
+
+        function handleDragMove(e) {
+            if (!State.isDragging) return;
+            e.preventDefault(); // Prevent scrolling
+            const evt = e.touches ? e.touches[0] : e;
+            dragCurrentY = evt.clientY;
+            
+            // Calculate visual offset if we were to manipulate DOM directly (optional)
+            // For now, we update state only on end to keep simple, OR we could do live update
+            // Let's try to move the bombi element visually via transform if possible
+            const bombiEl = document.getElementById('bombi-avatar');
+            if (bombiEl) {
+                const deltaY = dragCurrentY - dragStartY;
+                bombiEl.style.transform = `translateY(${deltaY}px) scale(1.2)`;
+            }
+        }
+
+        function handleDragEnd(e) {
+            if (!State.isDragging) return;
+            State.isDragging = false;
+            
+            document.removeEventListener('mousemove', handleDragMove);
+            document.removeEventListener('mouseup', handleDragEnd);
+            document.removeEventListener('touchmove', handleDragMove);
+            document.removeEventListener('touchend', handleDragEnd);
+
+            const deltaY = dragStartY - dragCurrentY; // Up is positive delta in screen coords (Y decreases up)
+            
+            // Threshold to move 1 floor approx 40px
+            // Allow moving multiple floors
+            if (deltaY > 20) {
+                const floorsToMove = Math.round(deltaY / 40);
+                if (floorsToMove > 0) {
+                    moveBombi(floorsToMove);
+                } else {
+                    render(); // Reset position
+                }
+            } else {
+                render(); // Reset position
             }
         }
 
@@ -284,6 +431,7 @@
                         ${renderMenuCard('Sin Llevadas', 'green', '😃', 'SIN_LLEVADAS')}
                         ${renderMenuCard('Con Llevadas', 'orange', '😎', 'CON_LLEVADAS')}
                     </div>
+                    <div class="mt-8 text-white/50 text-sm font-bold cursor-pointer" onclick="AudioController.init(); alert('Audio activado')">🔈 Activar Audio</div>
                 </div>
             `;
         }
@@ -310,7 +458,7 @@
                     <div class="flex-1 flex flex-col z-10 relative bg-gradient-to-b from-white/95 to-white/80 backdrop-blur-sm">
                         <!-- Header -->
                         <div class="flex justify-between items-center p-3 bg-white/50 shadow-sm">
-                            <button onclick="State.screen='MENU'; render()" class="p-3 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 shadow-sm active:scale-90 transition-all" title="Volver al inicio">
+                            <button onclick="State.screen='MENU'; render(); AudioController.playClick()" class="p-3 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 shadow-sm active:scale-90 transition-all" title="Volver al inicio">
                                 ${Icons.Home}
                             </button>
                             <div class="text-blue-600 font-bold text-xl uppercase tracking-wider hidden md:block bg-blue-50 px-4 py-1 rounded-full border border-blue-100">
@@ -395,37 +543,46 @@
 
         function renderKeypad() {
             const keys = [7,8,9,4,5,6,1,2,3,0];
+            const isCreateMode = State.inputMode === 'CREAR';
+            
             return `
-                <div class="grid grid-cols-3 gap-3 p-4 bg-gray-100 rounded-[2rem] shadow-inner max-w-[320px]">
-                    ${keys.map(k => `
-                        <button onclick="handleKey('${k}')" class="h-16 text-3xl font-bold bg-white rounded-xl shadow-[0_4px_0_0_rgba(0,0,0,0.1)] border-2 border-b-4 border-gray-200 active:border-b-2 active:translate-y-[2px] active:shadow-none text-gray-600 transition-all ${k===0 ? 'col-span-1' : ''}">${k}</button>
-                    `).join('')}
-                    
-                    <button onclick="handleDelete()" class="h-16 flex items-center justify-center bg-red-50 text-red-500 rounded-xl shadow-[0_4px_0_0_rgba(239,68,68,0.2)] border-2 border-b-4 border-red-100 active:border-b-2 active:translate-y-[2px] active:shadow-none transition-all group">
-                        ${Icons.Delete}
-                    </button>
-                    
-                    <button onclick="handleCheck()" class="h-16 flex items-center justify-center bg-green-500 text-white rounded-xl shadow-[0_4px_0_0_rgba(21,128,61,0.3)] border-2 border-b-4 border-green-600 active:border-b-2 active:translate-y-[2px] active:shadow-none transition-all">
-                        ${Icons.Check}
-                    </button>
+                <div class="relative max-w-[320px]">
+                    ${isCreateMode ? `
+                        <button onclick="handleClearAll()" class="absolute -top-10 right-0 bg-white/80 hover:bg-red-50 text-gray-500 hover:text-red-500 px-3 py-1 rounded-lg text-xs font-bold shadow-sm border border-gray-200 flex items-center gap-1 transition-colors">
+                           ${Icons.Trash} Borrar todo
+                        </button>
+                    ` : ''}
+                    <div class="grid grid-cols-3 gap-3 p-4 bg-gray-100 rounded-[2rem] shadow-inner">
+                        ${keys.map(k => `
+                            <button onclick="handleKey('${k}')" class="h-16 text-3xl font-bold bg-white rounded-xl shadow-[0_4px_0_0_rgba(0,0,0,0.1)] border-2 border-b-4 border-gray-200 active:border-b-2 active:translate-y-[2px] active:shadow-none text-gray-600 transition-all ${k===0 ? 'col-span-1' : ''}">${k}</button>
+                        `).join('')}
+                        
+                        <button onclick="handleDelete()" class="h-16 flex items-center justify-center bg-red-50 text-red-500 rounded-xl shadow-[0_4px_0_0_rgba(239,68,68,0.2)] border-2 border-b-4 border-red-100 active:border-b-2 active:translate-y-[2px] active:shadow-none transition-all group">
+                            ${Icons.Delete}
+                        </button>
+                        
+                        <button onclick="handleCheck()" class="h-16 flex items-center justify-center bg-green-500 text-white rounded-xl shadow-[0_4px_0_0_rgba(21,128,61,0.3)] border-2 border-b-4 border-green-600 active:border-b-2 active:translate-y-[2px] active:shadow-none transition-all">
+                            ${Icons.Check}
+                        </button>
+                    </div>
                 </div>
             `;
         }
 
         function renderBuilding() {
             // Visualization Logic
-            // Ensure visual range is appropriate.
             const fireFloor = parseInt(State.minuend);
             const bombiStart = parseInt(State.subtrahend);
             
-            // Determine max floor to render.
-            // If numbers are entered, use them. If not (empty), show a default set (e.g. 0-9).
-            let maxRenderFloor = 9;
-            if (!isNaN(fireFloor)) maxRenderFloor = Math.max(maxRenderFloor, fireFloor);
-            if (!isNaN(bombiStart)) maxRenderFloor = Math.max(maxRenderFloor, bombiStart);
-            
-            // Add headroom
-            maxRenderFloor += 2;
+            let maxRenderFloor = 9; // Default is 0-9
+
+            if (State.gameMode === 'CON_LLEVADAS') {
+                // In Expert mode, adapt height if floors go higher
+                if (!isNaN(fireFloor)) maxRenderFloor = Math.max(maxRenderFloor, fireFloor);
+                if (!isNaN(bombiStart)) maxRenderFloor = Math.max(maxRenderFloor, bombiStart);
+                maxRenderFloor += 2; // Add headroom
+            }
+            // In SIN_LLEVADAS, it stays fixed at 9 (0-9 floors) as requested
 
             // Generate floors HTML
             let floorsHtml = '';
@@ -433,9 +590,6 @@
                 const isGround = i === 0;
                 const isFire = i === fireFloor && !State.victory && !isNaN(fireFloor);
                 const isBombi = i === State.bombiFloor;
-                
-                // Floor Height: Fixed small size to fit many on screen
-                // h-8 (32px). With 20 floors -> 640px height.
                 
                 floorsHtml += `
                     <div class="h-9 w-44 md:w-56 border-x-[6px] border-gray-700 bg-yellow-100 relative flex items-center justify-center shrink-0 ${isGround ? 'border-b-[6px] border-gray-700' : 'border-b-2 border-gray-300'} mx-auto shadow-[inset_0_0_10px_rgba(0,0,0,0.05)]">
@@ -453,10 +607,18 @@
                         ${isFire ? `<div class="absolute inset-0 flex items-center justify-center z-20 animate-pulse -translate-y-2 filter drop-shadow-lg scale-125">${Icons.Flame}</div>` : ''}
 
                         ${isBombi ? `
-                            <div class="absolute inset-0 flex items-center justify-center z-30 transition-all duration-500 ease-out">
-                                <div class="text-3xl transform hover:scale-110 cursor-pointer filter drop-shadow-xl select-none -translate-y-1">👨‍🚒</div>
+                            <div 
+                                id="bombi-avatar"
+                                onmousedown="startDrag(event)" 
+                                ontouchstart="startDrag(event)"
+                                class="absolute inset-0 flex items-center justify-center z-30 transition-all duration-75 ease-out cursor-grab active:cursor-grabbing">
+                                <div class="text-3xl filter drop-shadow-xl select-none -translate-y-1 transform transition-transform active:scale-125">👨‍🚒</div>
                                 ${!State.victory && State.bombiFloor < fireFloor ? `
-                                    <button onclick="event.stopPropagation(); moveBombi()" class="absolute -right-14 md:-right-16 top-1/2 -translate-y-1/2 bg-white text-blue-600 w-8 h-8 flex items-center justify-center rounded-full shadow-lg animate-bounce border-2 border-blue-100 hover:bg-blue-50 active:scale-90 transition-transform">
+                                    <button 
+                                        onmousedown="event.stopPropagation()"
+                                        ontouchstart="event.stopPropagation()"
+                                        onclick="event.stopPropagation(); moveBombi()" 
+                                        class="absolute -right-14 md:-right-16 top-1/2 -translate-y-1/2 bg-white text-blue-600 w-10 h-10 flex items-center justify-center rounded-full shadow-[0_0_15px_rgba(37,99,235,0.6)] animate-bounce border-2 border-blue-200 hover:bg-blue-50 active:scale-90 transition-transform ring-2 ring-blue-100 z-50">
                                         ${Icons.ArrowUp}
                                     </button>
                                 ` : ''}
